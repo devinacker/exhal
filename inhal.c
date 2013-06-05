@@ -11,6 +11,7 @@
 */
 
 #include <stdio.h>
+#include <time.h>
 #include "compress.h"
 
 int main (int argc, char **argv) {
@@ -72,14 +73,18 @@ int main (int argc, char **argv) {
 	fread(unpacked, sizeof(uint8_t), inputsize, infile);
 	
 	// compress the file
+	clock_t time = clock();
 	outputsize = pack(unpacked, inputsize, packed);
+	time = clock() - time;
 	
 	// write the compressed data to the file
 	fseek(outfile, fileoffset, SEEK_SET);
 	fwrite((const void*)packed, 1, outputsize, outfile);
 	
 	printf("Compressed size: %d bytes\n", outputsize);
-	printf("Compression ratio: %3.2f\n\n", (double)outputsize / inputsize);
+	printf("Compression ratio: %4.2f%%\n", 100 * (double)outputsize / inputsize);
+	printf("Compression time: %4.3f seconds\n\n", (double)time / CLOCKS_PER_SEC);
+	
 	printf("Inserted at 0x%06X - 0x%06X\n", fileoffset, ftell(outfile) - 1);
 	
 	fclose(infile);

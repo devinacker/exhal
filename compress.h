@@ -23,7 +23,7 @@ typedef enum {
 	rle_16  = 1,
 	rle_seq = 2,
 
-    lz_norm = 0,
+	lz_norm = 0,
 	lz_rot  = 1,
 	lz_rev  = 2
 } method_e;
@@ -40,7 +40,7 @@ typedef struct {
 	method_e method;
 } rle_t;
 
-size_t pack   (uint8_t *unpacked, size_t inputsize, uint8_t *packed);
+size_t pack   (uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast);
 size_t unpack (uint8_t *packed, uint8_t *unpacked);
 
 size_t unpack_from_file (FILE *file, unsigned int offset, uint8_t *unpacked);

@@ -17,14 +17,16 @@
 int main (int argc, char **argv) {
 	printf("inhal - %s %s\nby Devin Acker (Revenant)\n\n", __DATE__, __TIME__);
 	
-	if (argc != 4) {
+	if (argc < 4) {
 		printf("To insert compressed data into a ROM:\n");
-		printf("%s infile romfile offset\n", argv[0]);
+		printf("%s [-fast] infile romfile offset\n", argv[0]);
 		
 		printf("To write compressed data to a new file:\n");
-		printf("%s -n infile outfile\n", argv[0]);
+		printf("%s [-fast] -n infile outfile\n\n", argv[0]);
 		
-		printf("\nExample:\n%s test.chr kirbybowl.sfc 0x70000\n", argv[0]);
+		printf("Running with the -fast switch increases compression speed at the expense of size.\n");
+		
+		printf("\nExample:\n%s -fast test.chr kirbybowl.sfc 0x70000\n", argv[0]);
 		printf("%s -n test.chr test-packed.bin\n\n", argv[0]);
 		printf("offset can be in either decimal or hex.\n");
 		exit(-1);
@@ -32,16 +34,28 @@ int main (int argc, char **argv) {
 	
 	FILE   *infile, *outfile;
 	int    fileoffset;
+	int    newfile = 0;
+	int    fast    = 0;
 	
+	for (int i = 1; i < argc; i++) {
+		if (!strcmp(argv[i], "-n"))
+			newfile = 1;
+		else if (!strcmp(argv[i], "-fast")) 
+			fast = 1;
+	}
+	
+	if (fast)
+		printf("Fast compression enabled.\n");
+		
 	// check for -n switch
-	if (!strcmp(argv[1], "-n")) {
+	if (newfile) {
 		fileoffset = 0;
-		infile = fopen(argv[2], "rb");
-		outfile = fopen(argv[3], "wb");
+		infile = fopen(argv[argc - 2], "rb");
+		outfile = fopen(argv[argc - 1], "wb");
 	} else {
-		fileoffset = strtol(argv[3], NULL, 0);
-		infile = fopen(argv[1], "rb");
-		outfile = fopen(argv[2], "r+b");
+		fileoffset = strtol(argv[argc - 1], NULL, 0);
+		infile = fopen(argv[argc - 3], "rb");
+		outfile = fopen(argv[argc - 2], "r+b");
 	}
 	
 	if (!infile) {
@@ -74,7 +88,7 @@ int main (int argc, char **argv) {
 	
 	// compress the file
 	clock_t time = clock();
-	outputsize = pack(unpacked, inputsize, packed);
+	outputsize = pack(unpacked, inputsize, packed, fast);
 	time = clock() - time;
 	
 	// write the compressed data to the file

@@ -16,8 +16,8 @@
 #endif
 
 uint8_t    rotate (uint8_t);
-rle_t      rle_check (uint8_t*, uint8_t*, uint32_t);
-backref_t  ref_search (uint8_t*, uint8_t*, uint32_t);
+rle_t      rle_check (uint8_t*, uint8_t*, uint32_t, int);
+backref_t  ref_search (uint8_t*, uint8_t*, uint32_t, int);
 uint16_t   write_backref (uint8_t*, uint16_t, backref_t);
 uint16_t   write_rle (uint8_t*, uint16_t, rle_t);
 uint16_t   write_raw (uint8_t*, uint16_t, uint8_t*, uint16_t);
@@ -26,7 +26,7 @@ uint16_t   write_raw (uint8_t*, uint16_t, uint8_t*, uint16_t);
 // unpacked/packed are 65536 byte buffers to read/from write to, 
 // inputsize is the length of the uncompressed data.
 // Returns the size of the compressed data in bytes.
-size_t pack(uint8_t *unpacked, uint32_t inputsize, uint8_t *packed) {
+size_t pack(uint8_t *unpacked, uint32_t inputsize, uint8_t *packed, int fast) {
 	// current input/output positions
 	uint32_t  inpos = 0;
 	uint32_t  outpos = 0;
@@ -43,9 +43,9 @@ size_t pack(uint8_t *unpacked, uint32_t inputsize, uint8_t *packed) {
 	
 	while (inpos < inputsize) {
 		// check for a potential back reference
-		backref = ref_search(unpacked, unpacked + inpos, inputsize);
+		backref = ref_search(unpacked, unpacked + inpos, inputsize, fast);
 		// and for a potential RLE
-		rle = rle_check(unpacked, unpacked + inpos, inputsize);
+		rle = rle_check(unpacked, unpacked + inpos, inputsize, fast);
 		
 		// if the backref is a better candidate, use it
 		if (backref.size > 3 && backref.size > rle.size) {
@@ -183,11 +183,6 @@ size_t unpack(uint8_t *packed, uint8_t *unpacked) {
 				unpacked[outpos++] = unpacked[offset - i];
 		
 			inpos += 2;
-			break;
-			
-		default:
-			printf("Error: Unsupported method %i near 0x%06x\n", command, inpos);
-			exit(-1);
 		}
 		
 		// keep track of how many times each compression method is used
@@ -235,10 +230,9 @@ uint8_t rotate (uint8_t i) {
 }
 
 // Searches for possible RLE compressed data.
-// Currently only does 8-bit RLE and sequence RLE (since 16-bit can be handled decently
-// using the LZ77-like backrefs.)
-// start and current are positions within the uncompressed input stream
-rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize) {
+// start and current are positions within the uncompressed input stream.
+// fast enables faster compression by ignoring sequence RLE.
+rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 	rle_t candidate = { 0, 0, 0 };
 	int size;
 	
@@ -275,6 +269,9 @@ rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize) {
 		debug("\trle_check: found new candidate (size = %d, method = %d)\n", candidate.size, candidate.method);
 	}
 	
+	// fast mode: don't use sequence RLE
+	if (fast) return candidate;
+	
 	// check for possible sequence RLE
 	for (size = 0; current + size < start + insize; size++)
 		if (current[size] != (current[0] + size)) break;
@@ -294,8 +291,9 @@ rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize) {
 }
 
 // Searches for the best possible back reference.
-// start and current are positions within the uncompressed input stream
-backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize) {
+// start and current are positions within the uncompressed input stream.
+// fast enables fast mode which only uses regular forward references
+backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 	backref_t candidate = { 0, 0, 0 };
 	uint16_t size;
 	
@@ -315,6 +313,9 @@ backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize) {
 			
 			debug("\tref_search: found new candidate (offset: %4x, size: %d, method = %d)\n", candidate.offset, candidate.size, candidate.method);
 		}
+		
+		// fast mode: forward references only
+		if (fast) continue;
 		
 		// now repeat the check with the bit rotation method
 		for (size = 0; size <= LONG_RUN_SIZE && current + size < start + insize; size++) 

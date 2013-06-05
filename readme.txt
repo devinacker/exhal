@@ -15,12 +15,16 @@ To use exhal (the decompressor):
 exhal romfile offset outfile
 
 To insert compressed data into a ROM:
-inhal infile romfile offset
+inhal [-fast] infile romfile offset
 
 To write compressed data to a new file:
-inhal -n infile outfile
+inhal [-fast] -n infile outfile
 
 Offsets can be specified in either hexadecimal (recommended) or decimal.
+
+Using the -fast switch results in compression which is about 3 to 4 times faster, but with
+slightly larger output data. Use this if you don't care about data sizes being 100% identical
+to the original compressed data.
 
 This is a list of games which are known to use the supported compression method, or are assumed
 to, based on a binary search of the games' ROMs:

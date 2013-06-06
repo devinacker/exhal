@@ -41,17 +41,11 @@ int main (int argc, char **argv) {
 	size_t   outputsize;
 	uint32_t fileoffset;
 	uint8_t  unpacked[DATA_SIZE];
-	uint8_t  packed[DATA_SIZE];
-	memset(packed, 0, DATA_SIZE);
 	
 	fileoffset = strtol(argv[2], NULL, 0);
 	
-	// read the file
-	fseek(infile, fileoffset, SEEK_SET);
-	fread(packed, sizeof(uint8_t), DATA_SIZE, infile);
-	
-	// compress the file
-	outputsize = unpack(packed, unpacked);
+	// decompress the file
+	outputsize = unpack_from_file(infile, fileoffset, unpacked);
 	
 	// write the uncompressed data to the file
 	fseek(infile, 0, SEEK_SET);

@@ -69,8 +69,7 @@ int main (int argc, char **argv) {
 	
 	size_t   inputsize, outputsize;
 	uint8_t  unpacked[DATA_SIZE];
-	uint8_t  packed[DATA_SIZE];
-	memset(packed, 0, DATA_SIZE);
+	uint8_t  packed[DATA_SIZE] = {0};
 	
 	// check size of input file
 	fseek(infile, 0, SEEK_END);

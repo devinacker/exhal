@@ -48,7 +48,7 @@ int main (int argc, char **argv) {
 	outputsize = unpack_from_file(infile, fileoffset, unpacked);
 	
 	// write the uncompressed data to the file
-	fseek(infile, 0, SEEK_SET);
+	fseek(outfile, 0, SEEK_SET);
 	fwrite((const void*)unpacked, 1, outputsize, outfile);
 	
 	printf("\nUncompressed size: %d bytes\n", outputsize);

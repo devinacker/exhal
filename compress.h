@@ -40,7 +40,7 @@ typedef struct {
 	method_e method;
 } rle_t;
 
-size_t pack   (uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast);
+size_t pack   (uint8_t *unpacked, uint32_t inputsize, uint8_t *packed, int fast);
 size_t unpack (uint8_t *packed, uint8_t *unpacked);
 
 size_t unpack_from_file (FILE *file, unsigned int offset, uint8_t *unpacked);

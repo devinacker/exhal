@@ -4,10 +4,12 @@
 
 CC      = gcc
 FLAGS   = -std=c99 -O2 -Wall
+DELETE	= rm
 
 # Add extension when compiling for Windows
 ifdef SystemRoot
 	EXT = .exe
+	DELETE = del
 endif
 
 # Comment this line to suppress detailed decompression information on stdout
@@ -18,7 +20,7 @@ DEFINES += -DEXTRA_OUT
 all: inhal$(EXT) exhal$(EXT)
 
 clean:
-	del inhal$(EXT) exhal$(EXT) compress.o
+	$(DELETE) inhal$(EXT) exhal$(EXT) compress.o
 	
 inhal$(EXT): inhal.c compress.o
 	$(CC) $(DEFINES) $(FLAGS) -o inhal$(EXT) inhal.c compress.o

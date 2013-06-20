@@ -51,7 +51,7 @@ int main (int argc, char **argv) {
 	fseek(outfile, 0, SEEK_SET);
 	fwrite((const void*)unpacked, 1, outputsize, outfile);
 	
-	printf("\nUncompressed size: %d bytes\n", outputsize);
+	printf("\nUncompressed size: %zd bytes\n", outputsize);
 	
 	fclose(infile);
 	fclose(outfile);

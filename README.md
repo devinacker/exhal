@@ -1,5 +1,5 @@
 # exhal / inhal
-**HAL Laboratory NES/SNES/GB (de)compression tools**
+**HAL Laboratory NES/SNES/GB (de)compression tools**  
 by Devin Acker (Revenant), 2013
 
 These programs are released under the terms of the MIT license. See copying.txt for legal info.
@@ -8,13 +8,13 @@ exhal and inhal are tools designed to decompress and recompress/insert data used
 
 Due to the design of the original decompression algorithm (and hardware limitations), the size of a file to be compressed is limited to 64 kilobytes (65,536 bytes). Please note that depending on which system you are working with, the actual useful limit may be much smaller.
 
-*To use exhal (the decompressor):*  
+**To use exhal (the decompressor):**  
 exhal romfile offset outfile
 
-*To insert compressed data into a ROM:*  
+**To insert compressed data into a ROM:**  
 inhal [-fast] infile romfile offset
 
-*To write compressed data to a new file:*  
+**To write compressed data to a new file:**  
 inhal [-fast] -n infile outfile
 
 Offsets can be specified in either hexadecimal (recommended) or decimal.

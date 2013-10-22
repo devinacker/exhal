@@ -3,7 +3,7 @@
 # See copying.txt for legal information.
 
 CC      = gcc
-FLAGS   = -std=c99 -O2 -Wall
+FLAGS   = -std=c99 -Os -Wall -s
 DELETE	= rm
 
 # Add extension when compiling for Windows

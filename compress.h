@@ -3,7 +3,7 @@
 	by Devin Acker
 
 	This code is released under the terms of the MIT license.
-	See copying.txt for details.
+	See COPYING.txt for details.
 */
 
 #ifndef _COMPRESS_H

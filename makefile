@@ -17,15 +17,15 @@ DEFINES += -DEXTRA_OUT
 # Uncomment this line to enable debug output
 #DEFINES += -DDEBUG_OUT
 
-all: inhal$(EXT) exhal$(EXT)
+all: inhal exhal
 
 clean:
 	$(DELETE) inhal$(EXT) exhal$(EXT) compress.o
 	
-inhal$(EXT): inhal.c compress.o
+inhal: inhal.c compress.o
 	$(CC) $(DEFINES) $(FLAGS) -o inhal$(EXT) inhal.c compress.o
 	
-exhal$(EXT): exhal.c compress.o
+exhal: exhal.c compress.o
 	$(CC) $(DEFINES) $(FLAGS) -o exhal$(EXT) exhal.c compress.o
 	
 compress.o: compress.c

@@ -3,10 +3,11 @@
 	by Devin Acker
 
 	This code is released under the terms of the MIT license.
-	See copying.txt for details.
+	See COPYING.txt for details.
 */
 
 #include <stdio.h>
+#include <string.h>
 #include "compress.h"
 
 #ifdef DEBUG_OUT
@@ -121,27 +122,28 @@ size_t unpack(uint8_t *packed, uint8_t *unpacked) {
 		switch (command) {
 		// write uncompressed bytes
 		case 0:
-			for (int i = 0; i < length; i++)
-				unpacked[outpos++] = packed[inpos++];
+			memcpy(&unpacked[outpos], &packed[inpos], length);
 			
+			outpos += length;
+			inpos  += length;
 			break;
 		
 		// 8-bit RLE
 		case 1:
-			for (int i = 0; i < length; i++)
-				unpacked[outpos++] = packed[inpos];
+			unpacked[outpos] = packed[inpos++];
+			memcpy(&unpacked[outpos + 1], &unpacked[outpos], length - 1);
 			
-			inpos++;
+			outpos += length;
 			break;
 		
 		// 16-bit RLE
 		case 2:
-			for (int i = 0; i < length; i++) {
-				unpacked[outpos++] = packed[inpos];
-				unpacked[outpos++] = packed[inpos+1];
-			}
+			unpacked[outpos]     = packed[inpos];
+			unpacked[outpos + 1] = packed[inpos + 1];
+			memcpy(&unpacked[outpos + 2], &unpacked[outpos], 2 * (length - 1));
 			
-			inpos += 2;
+			outpos += (length * 2);
+			inpos  += 2;
 			break;
 		
 		// 8-bit increasing sequence
@@ -156,13 +158,16 @@ size_t unpack(uint8_t *packed, uint8_t *unpacked) {
 		// (offset is big-endian)
 		case 4:
 		case 7:
+			// 7 isn't a real method number, but it behaves the same as 4 due to a quirk in how
+			// the original decompression routine is programmed. (one of Parasyte's docs confirms
+			// this for GB games as well). let's handle it anyway
 			command = 4;
 		
 			offset = (packed[inpos] << 8) | packed[inpos+1];
-			for (int i = 0; i < length; i++)
-				unpacked[outpos++] = unpacked[offset + i];
+			memcpy(&unpacked[outpos], &unpacked[offset], length);
 			
-			inpos += 2;
+			outpos += length;
+			inpos  += 2;
 			break;
 			
 		// backref with bit rotation
@@ -241,7 +246,7 @@ rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 		if (current[size] != current[0]) break;
 		
 	// if this is better than the current candidate, use it
-	if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
+	//if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
 	
 	if (size > 2 && size > candidate.size) {
 		candidate.size = size;
@@ -259,7 +264,7 @@ rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 	}
 		
 	// if this is better than the current candidate, use it
-	if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
+	//if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
 	
 	if (size > 2 && size > candidate.size) {
 		candidate.size = size;
@@ -277,7 +282,7 @@ rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 		if (current[size] != (current[0] + size)) break;
 		
 	// if this is better than the current candidate, use it
-	if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
+	//if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
 	
 	if (size > 2 && size > candidate.size) {
 		candidate.size = size;
@@ -304,7 +309,7 @@ backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, int fas
 			if (pos[size] != current[size]) break;
 			
 		// if this is better than the current candidate, use it
-		if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
+		//if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
 		
 		if (size > 3 && size > candidate.size) {
 			candidate.size = size;
@@ -322,7 +327,7 @@ backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, int fas
 			if (pos[size] != rotate(current[size])) break;
 				
 		// if this is better than the current candidate, use it
-		if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
+		//if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
 		
 		if (size > 3 && size > candidate.size) {
 			candidate.size = size;
@@ -337,7 +342,7 @@ backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, int fas
 			if (start[pos - start - size] != current[size]) break;
 		
 		// if this is better than the current candidate, use it
-		if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
+		//if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
 		
 		if (size > 3 && size > candidate.size) {
 			candidate.size = size;
@@ -456,8 +461,7 @@ uint16_t write_raw (uint8_t *out, uint16_t outpos, uint8_t *in, uint16_t insize)
 	}
 	
 	// write data
-	for (int i = 0; i < insize; i++)
-		out[outpos++] = in[i];
-		
+	memcpy(&out[outpos], in, insize);
+	
 	return outsize;
 }

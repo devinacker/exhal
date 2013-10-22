@@ -81,4 +81,5 @@ Special thanks to:
 
  - andlabs for helping me make the list of supported games
  - BMF54123 for naming the programs
+ - Tiiffi for misc. Mac OS X build fixes
  - You for downloading (and using?) my software

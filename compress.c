@@ -246,8 +246,6 @@ rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 		if (current[size] != current[0]) break;
 		
 	// if this is better than the current candidate, use it
-	//if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
-	
 	if (size > 2 && size > candidate.size) {
 		candidate.size = size;
 		candidate.data = current[0];
@@ -264,8 +262,6 @@ rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 	}
 		
 	// if this is better than the current candidate, use it
-	//if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
-	
 	if (size > 2 && size > candidate.size) {
 		candidate.size = size;
 		candidate.data = first;
@@ -282,8 +278,6 @@ rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 		if (current[size] != (current[0] + size)) break;
 		
 	// if this is better than the current candidate, use it
-	//if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
-	
 	if (size > 2 && size > candidate.size) {
 		candidate.size = size;
 		candidate.data = current[0];
@@ -309,8 +303,6 @@ backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, int fas
 			if (pos[size] != current[size]) break;
 			
 		// if this is better than the current candidate, use it
-		//if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
-		
 		if (size > 3 && size > candidate.size) {
 			candidate.size = size;
 			candidate.offset = pos - start;
@@ -327,8 +319,6 @@ backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, int fas
 			if (pos[size] != rotate(current[size])) break;
 				
 		// if this is better than the current candidate, use it
-		//if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
-		
 		if (size > 3 && size > candidate.size) {
 			candidate.size = size;
 			candidate.offset = pos - start;
@@ -342,8 +332,6 @@ backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, int fas
 			if (start[pos - start - size] != current[size]) break;
 		
 		// if this is better than the current candidate, use it
-		//if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
-		
 		if (size > 3 && size > candidate.size) {
 			candidate.size = size;
 			candidate.offset = pos - start;

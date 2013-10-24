@@ -1,5 +1,6 @@
 exhal / inhal
-HAL Laboratory NES/SNES/GB (de)compression tools
+HAL Laboratory NES/SNES/GB (de)compression tools 
+(version 1.10)
 by Devin Acker (Revenant), 2013
 
 These programs are released under the terms of the MIT license. See copying.txt for legal info.
@@ -10,6 +11,10 @@ SNES and Game Boy games developed by HAL Laboratory.
 Due to the design of the original decompression algorithm (and hardware limitations), the size of
 a file to be compressed is limited to 64 kilobytes (65,536 bytes). Please note that depending on
 which system you are working with, the actual useful limit may be much smaller.
+
+Files compressed using exhal can often be smaller than their original compressed forms in the
+source ROMs, likely due to some shortcuts taken by the original development tools. In addition,
+version 1.10 nicely optimizes the compression process and is about 4x faster than before.
 
 To use exhal (the decompressor):
 exhal romfile offset outfile
@@ -23,8 +28,7 @@ inhal [-fast] -n infile outfile
 Offsets can be specified in either hexadecimal (recommended) or decimal.
 
 Using the -fast switch results in compression which is about 3 to 4 times faster, but with
-slightly larger output data. Use this if you don't care about data sizes being 100% identical
-to the original compressed data.
+slightly larger output data. Use this if you don't care about data sizes being 100% optimal.
 
 This is a list of games which are known to use the supported compression method, or are assumed
 to, based on a binary search of the games' ROMs:

@@ -23,6 +23,9 @@ uint16_t   write_backref (uint8_t*, uint16_t, backref_t);
 uint16_t   write_rle (uint8_t*, uint16_t, rle_t);
 uint16_t   write_raw (uint8_t*, uint16_t, uint8_t*, uint16_t);
 
+// index of first locations of byte-pairs used to speed up LZ string search (unfinished)
+uint16_t offsets[256][256];
+
 // Compresses a file of up to 64 kb.
 // unpacked/packed are 65536 byte buffers to read/from write to, 
 // inputsize is the length of the uncompressed data.
@@ -42,9 +45,20 @@ size_t pack(uint8_t *unpacked, uint32_t inputsize, uint8_t *packed, int fast) {
 	
 	debug("inputsize = %d\n", inputsize);
 	
+	memset(&offsets[0][0], 0xFF, sizeof(offsets));
+	//iterate over file and mark the location of every possible byte pair
+	for (uint16_t i = 0; i < inputsize - 3; i++) {
+		uint8_t b1 = unpacked[i];
+		uint8_t b2 = unpacked[i + 1];
+		if (i < offsets[b1][b2])
+			offsets[b1][b2] = i;
+	}
+	
 	while (inpos < inputsize) {
 		// check for a potential back reference
-		backref = ref_search(unpacked, unpacked + inpos, inputsize, fast);
+		if (inpos < inputsize - 3)
+			backref = ref_search(unpacked, unpacked + inpos, inputsize, fast);
+		else backref.size = 0;
 		// and for a potential RLE
 		rle = rle_check(unpacked, unpacked + inpos, inputsize, fast);
 		
@@ -203,6 +217,8 @@ size_t unpack(uint8_t *packed, uint8_t *unpacked) {
 	printf("Backref (normal) : %i\n", methoduse[4]);
 	printf("Backref (rotate) : %i\n", methoduse[5]);
 	printf("Backref (reverse): %i\n", methoduse[6]);
+	
+	printf("Compressed size: %d bytes\n", inpos);
 #endif
 
 	return (size_t)outpos;
@@ -242,10 +258,11 @@ rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 	int size;
 	
 	// check for possible 8-bit RLE
-	for (size = 0; current + size < start + insize; size++)
+	for (size = 0; size <= LONG_RUN_SIZE && current + size < start + insize; size++)
 		if (current[size] != current[0]) break;
 		
 	// if this is better than the current candidate, use it
+	if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
 	if (size > 2 && size > candidate.size) {
 		candidate.size = size;
 		candidate.data = current[0];
@@ -256,12 +273,13 @@ rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 	
 	// check for possible 16-bit RLE
 	uint16_t first = current[0] | (current[1] << 8);
-	for (size = 0; current + size < start + insize; size += 2) {
+	for (size = 0; size <= LONG_RUN_SIZE && current + size < start + insize; size += 2) {
 		uint16_t next = current[size] | (current[size + 1] << 8);
 		if (next != first) break;
 	}
 		
 	// if this is better than the current candidate, use it
+	if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
 	if (size > 2 && size > candidate.size) {
 		candidate.size = size;
 		candidate.data = first;
@@ -274,10 +292,11 @@ rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 	if (fast) return candidate;
 	
 	// check for possible sequence RLE
-	for (size = 0; current + size < start + insize; size++)
+	for (size = 0; size <= LONG_RUN_SIZE && current + size < start + insize; size++)
 		if (current[size] != (current[0] + size)) break;
 		
 	// if this is better than the current candidate, use it
+	if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
 	if (size > 2 && size > candidate.size) {
 		candidate.size = size;
 		candidate.data = current[0];
@@ -294,15 +313,22 @@ rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 // fast enables fast mode which only uses regular forward references
 backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 	backref_t candidate = { 0, 0, 0 };
-	uint16_t size;
+	uint16_t size, offset;
+	uint8_t b1, b2;
 	
-	for (uint8_t *pos = start; pos < current; pos++) {
+	// references to previous data which goes in the same direction
+	// see if this byte pair exists elsewhere, then start searching.
+	b1 = current[0];
+	b2 = current[1];
+	offset = offsets[b1][b2];
+	if (offset != 0xFFFF) for (uint8_t *pos = start + offset; pos < current; pos++) {
 		// see how many bytes in a row are the same between the current uncompressed data
 		// and the data at the position being searched
 		for (size = 0; size <= LONG_RUN_SIZE && current + size < start + insize; size++) 
 			if (pos[size] != current[size]) break;
 			
 		// if this is better than the current candidate, use it
+		if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
 		if (size > 3 && size > candidate.size) {
 			candidate.size = size;
 			candidate.offset = pos - start;
@@ -310,15 +336,23 @@ backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, int fas
 			
 			debug("\tref_search: found new candidate (offset: %4x, size: %d, method = %d)\n", candidate.offset, candidate.size, candidate.method);
 		}
-		
-		// fast mode: forward references only
-		if (fast) continue;
-		
+	}
+	
+	// fast mode: forward references only
+	if (fast) return candidate;
+	
+	// references to data where the bits are rotated
+	// see if this byte pair exists elsewhere, then start searching.
+	b1 = rotate(current[0]);
+	b2 = rotate(current[1]);
+	offset = offsets[b1][b2];
+	if (offset != 0xFFFF) for (uint8_t *pos = start + offset; pos < current; pos++) {	
 		// now repeat the check with the bit rotation method
 		for (size = 0; size <= LONG_RUN_SIZE && current + size < start + insize; size++) 
 			if (pos[size] != rotate(current[size])) break;
 				
 		// if this is better than the current candidate, use it
+		if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
 		if (size > 3 && size > candidate.size) {
 			candidate.size = size;
 			candidate.offset = pos - start;
@@ -326,12 +360,21 @@ backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, int fas
 			
 			debug("\tref_search: found new candidate (offset: %4x, size: %d, method = %d)\n", candidate.offset, candidate.size, candidate.method);
 		}
-		
+	}
+	
+	// references to data which goes backwards
+	// see if this byte pair exists elsewhere, then start searching.
+	b1 = current[0];
+	b2 = current[1];
+	offset = offsets[b2][b1] + 1;
+	// 0xFFFF + 1 = 0
+	if (offset != 0) for (uint8_t *pos = start + offset; pos < current; pos++) {
 		// now repeat the check but go backwards
 		for (size = 0; size <= LONG_RUN_SIZE && current + size < start + insize; size++)
 			if (start[pos - start - size] != current[size]) break;
 		
 		// if this is better than the current candidate, use it
+		if (size > LONG_RUN_SIZE) size = LONG_RUN_SIZE;
 		if (size > 3 && size > candidate.size) {
 			candidate.size = size;
 			candidate.offset = pos - start;

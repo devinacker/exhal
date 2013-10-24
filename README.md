@@ -1,6 +1,6 @@
 # exhal / inhal
-**HAL Laboratory NES/SNES/GB (de)compression tools** 
-**(version 1.10)** 
+**HAL Laboratory NES/SNES/GB (de)compression tools**  
+**(version 1.10)**  
 by Devin Acker (Revenant), 2013
 
 These programs are released under the terms of the MIT license. See copying.txt for legal info.

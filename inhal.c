@@ -75,7 +75,7 @@ int main (int argc, char **argv) {
 	fseek(infile, 0, SEEK_END);
 	inputsize = ftell(infile);
 	
-	printf("Uncompressed size: %zd bytes\n", inputsize);
+	printf("Uncompressed size: % zd bytes\n", inputsize);
 	
 	if (inputsize > DATA_SIZE) {
 		printf("Error: File must be a maximum of 65,536 bytes!\n");
@@ -94,9 +94,9 @@ int main (int argc, char **argv) {
 	fseek(outfile, fileoffset, SEEK_SET);
 	fwrite((const void*)packed, 1, outputsize, outfile);
 	
-	printf("Compressed size: %zd bytes\n", outputsize);
-	printf("Compression ratio: %4.2f%%\n", 100 * (double)outputsize / inputsize);
-	printf("Compression time: %4.3f seconds\n\n", (double)time / CLOCKS_PER_SEC);
+	printf("Compressed size:   % zd bytes\n", outputsize);
+	printf("Compression ratio:  %4.2f%%\n", 100 * (double)outputsize / inputsize);
+	printf("Compression time:   %4.3f seconds\n\n", (double)time / CLOCKS_PER_SEC);
 	
 	printf("Inserted at 0x%06X - 0x%06lX\n", fileoffset, ftell(outfile) - 1);
 	

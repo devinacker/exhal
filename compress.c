@@ -218,7 +218,7 @@ size_t unpack(uint8_t *packed, uint8_t *unpacked) {
 	printf("Backref (rotate) : %i\n", methoduse[5]);
 	printf("Backref (reverse): %i\n", methoduse[6]);
 	
-	printf("Compressed size: %d bytes\n", inpos);
+	printf("\nCompressed size:   % zd bytes\n", inpos);
 #endif
 
 	return (size_t)outpos;
@@ -273,7 +273,7 @@ rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 	
 	// check for possible 16-bit RLE
 	uint16_t first = current[0] | (current[1] << 8);
-	for (size = 0; size <= LONG_RUN_SIZE && current + size < start + insize; size += 2) {
+	for (size = 0; size <= LONG_RUN_SIZE && current + size < start + insize - 1; size += 2) {
 		uint16_t next = current[size] | (current[size + 1] << 8);
 		if (next != first) break;
 	}

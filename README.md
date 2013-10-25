@@ -1,7 +1,8 @@
 # exhal / inhal
 **HAL Laboratory NES/SNES/GB (de)compression tools**  
 **(version 1.10)**  
-by Devin Acker (Revenant), 2013
+by Devin Acker (Revenant), 2013  
+https://github.com/devinacker
 
 exhal and inhal are tools designed to decompress and recompress/insert data used by several NES, SNES and Game Boy games developed by HAL Laboratory. 
 

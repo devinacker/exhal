@@ -3,13 +3,13 @@
 **(version 1.10)**  
 by Devin Acker (Revenant), 2013
 
-These programs are released under the terms of the MIT license. See copying.txt for legal info.
-
 exhal and inhal are tools designed to decompress and recompress/insert data used by several NES, SNES and Game Boy games developed by HAL Laboratory. 
 
 Due to the design of the original decompression algorithm (and hardware limitations), the size of a file to be compressed is limited to 64 kilobytes (65,536 bytes). Please note that depending on which system you are working with, the actual useful limit may be much smaller.
 
 Files compressed using exhal can often be smaller than their original compressed forms in the source ROMs, likely due to some shortcuts taken by the original development tools. In addition, version 1.10 nicely optimizes the compression process and is about 4x faster than before.
+
+Source code is available at https://github.com/devinacker and is released under the terms of the MIT license. See COPYING.txt for legal info.
 
 **To use exhal (the decompressor):**  
 exhal romfile offset outfile

@@ -10,6 +10,7 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include "compress.h"
 
 int main (int argc, char **argv) {

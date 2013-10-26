@@ -16,6 +16,29 @@
 #define debug(...)
 #endif
 
+// compression method values for backref_t and rle_t
+typedef enum {
+	rle_8   = 0,
+	rle_16  = 1,
+	rle_seq = 2,
+
+	lz_norm = 0,
+	lz_rot  = 1,
+	lz_rev  = 2
+} method_e;
+
+// used to store and compare backref candidates
+typedef struct {
+	uint16_t offset, size;
+	method_e method;
+} backref_t;
+
+// used to store RLE candidates
+typedef struct {
+	uint16_t size, data;
+	method_e method;
+} rle_t;
+
 uint8_t    rotate (uint8_t);
 rle_t      rle_check (uint8_t*, uint8_t*, uint32_t, int);
 backref_t  ref_search (uint8_t*, uint8_t*, uint32_t, int);

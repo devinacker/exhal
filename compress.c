@@ -168,30 +168,30 @@ size_t unpack(uint8_t *packed, uint8_t *unpacked) {
 			break;
 		
 		// 8-bit RLE
-        case 1:
-            for (int i = 0; i < length; i++)
-                unpacked[outpos++] = packed[inpos];
+		case 1:
+			for (int i = 0; i < length; i++)
+				unpacked[outpos++] = packed[inpos];
 
-            inpos++;
-            break;
+			inpos++;
+			break;
 
-        // 16-bit RLE
-        case 2:
-            for (int i = 0; i < length; i++) {
-                unpacked[outpos++] = packed[inpos];
-                unpacked[outpos++] = packed[inpos+1];
-            }
+		// 16-bit RLE
+		case 2:
+			for (int i = 0; i < length; i++) {
+				unpacked[outpos++] = packed[inpos];
+				unpacked[outpos++] = packed[inpos+1];
+			}
 
-            inpos += 2;
-            break;
+			inpos += 2;
+			break;
 
-        // 8-bit increasing sequence
-        case 3:
-            for (int i = 0; i < length; i++)
-                unpacked[outpos++] = packed[inpos] + i;
+		// 8-bit increasing sequence
+		case 3:
+			for (int i = 0; i < length; i++)
+				unpacked[outpos++] = packed[inpos] + i;
 
-            inpos++;
-            break;
+			inpos++;
+			break;
 			
 		// regular backref
 		// (offset is big-endian)
@@ -200,33 +200,33 @@ size_t unpack(uint8_t *packed, uint8_t *unpacked) {
 			// 7 isn't a real method number, but it behaves the same as 4 due to a quirk in how
 			// the original decompression routine is programmed. (one of Parasyte's docs confirms
 			// this for GB games as well). let's handle it anyway
-            command = 4;
+			command = 4;
 
-            offset = (packed[inpos] << 8) | packed[inpos+1];
-            for (int i = 0; i < length; i++)
-                unpacked[outpos++] = unpacked[offset + i];
+			offset = (packed[inpos] << 8) | packed[inpos+1];
+			for (int i = 0; i < length; i++)
+				unpacked[outpos++] = unpacked[offset + i];
 
-            inpos += 2;
-            break;
+			inpos += 2;
+			break;
 
-        // backref with bit rotation
-        // (offset is big-endian)
-        case 5:
-            offset = (packed[inpos] << 8) | packed[inpos+1];
-            for (int i = 0; i < length; i++)
-                unpacked[outpos++] = rotate(unpacked[offset + i]);
+		// backref with bit rotation
+		// (offset is big-endian)
+		case 5:
+			offset = (packed[inpos] << 8) | packed[inpos+1];
+			for (int i = 0; i < length; i++)
+				unpacked[outpos++] = rotate(unpacked[offset + i]);
 
-            inpos += 2;
-            break;
+			inpos += 2;
+			break;
 
-        // backwards backref
-        // (offset is big-endian)
-        case 6:
-            offset = (packed[inpos] << 8) | packed[inpos+1];
-            for (int i = 0; i < length; i++)
-                unpacked[outpos++] = unpacked[offset - i];
+		// backwards backref
+		// (offset is big-endian)
+		case 6:
+			offset = (packed[inpos] << 8) | packed[inpos+1];
+			for (int i = 0; i < length; i++)
+				unpacked[outpos++] = unpacked[offset - i];
 
-            inpos += 2;
+			inpos += 2;
 		}
 		
 		// keep track of how many times each compression method is used

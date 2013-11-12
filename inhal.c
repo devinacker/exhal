@@ -76,7 +76,7 @@ int main (int argc, char **argv) {
 	fseek(infile, 0, SEEK_END);
 	inputsize = ftell(infile);
 	
-	printf("Uncompressed size: % zd bytes\n", inputsize);
+	printf("Uncompressed size: %zd bytes\n", inputsize);
 	
 	if (inputsize > DATA_SIZE) {
 		printf("Error: File must be a maximum of 65,536 bytes!\n");

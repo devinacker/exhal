@@ -243,7 +243,7 @@ size_t unpack(uint8_t *packed, uint8_t *unpacked) {
 	printf("Backref (rotate) : %i\n", methoduse[5]);
 	printf("Backref (reverse): %i\n", methoduse[6]);
 	
-	printf("\nCompressed size:   % zd bytes\n", inpos);
+	printf("\nCompressed size:   %u bytes\n", inpos);
 #endif
 
 	return (size_t)outpos;

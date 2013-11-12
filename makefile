@@ -2,13 +2,13 @@
 # copyright 2013 Devin Acker (Revenant)
 # See copying.txt for legal information.
 
-FLAGS   = -std=c99 -Os -Wall -s
-DELETE	= rm -f
+CFLAGS  += -std=c99 -Os -Wall -s
 
 # Add extension when compiling for Windows
 ifdef SystemRoot
+	CC  = gcc 
 	EXT = .exe
-	DELETE = del
+	RM  = del
 endif
 
 # Comment this line to suppress detailed decompression information on stdout
@@ -19,13 +19,13 @@ DEFINES += -DEXTRA_OUT
 all: inhal exhal
 
 clean:
-	$(DELETE) inhal$(EXT) exhal$(EXT) compress.o
+	$(RM) inhal$(EXT) exhal$(EXT) compress.o
 	
 inhal: inhal.c compress.o
-	$(CC) $(DEFINES) $(FLAGS) -o inhal$(EXT) inhal.c compress.o
+	$(CC) $(DEFINES) $(CFLAGS) -o inhal$(EXT) inhal.c compress.o
 	
 exhal: exhal.c compress.o
-	$(CC) $(DEFINES) $(FLAGS) -o exhal$(EXT) exhal.c compress.o
+	$(CC) $(DEFINES) $(CFLAGS) -o exhal$(EXT) exhal.c compress.o
 	
 compress.o: compress.c
-	$(CC) $(DEFINES) $(FLAGS) -c compress.c
+	$(CC) $(DEFINES) $(CFLAGS) -c compress.c

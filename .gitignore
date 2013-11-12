@@ -1,6 +1,11 @@
 *.bin
 *.exe
 *.o
+*.zip
+*.sfc
+*.nes
+*.gb
+*.gbc
 
 #################
 ## Eclipse

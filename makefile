@@ -2,9 +2,8 @@
 # copyright 2013 Devin Acker (Revenant)
 # See copying.txt for legal information.
 
-CC      = gcc
 FLAGS   = -std=c99 -Os -Wall -s
-DELETE	= rm
+DELETE	= rm -f
 
 # Add extension when compiling for Windows
 ifdef SystemRoot

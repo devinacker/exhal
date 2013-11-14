@@ -14,7 +14,7 @@
 #include "compress.h"
 
 int main (int argc, char **argv) {
-	printf("exhal - %s %s\nby Devin Acker (Revenant)\n\n", __DATE__, __TIME__);
+	printf("exhal - " __DATE__ " " __TIME__"\nby Devin Acker (Revenant)\n\n");
 	
 	if (argc != 4) {
 		printf("Usage:\n%s romfile offset outfile\n", argv[0]);

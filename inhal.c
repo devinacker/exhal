@@ -16,7 +16,7 @@
 #include "compress.h"
 
 int main (int argc, char **argv) {
-	printf("inhal - %s %s\nby Devin Acker (Revenant)\n\n", __DATE__, __TIME__);
+	printf("inhal - " __DATE__ " " __TIME__"\nby Devin Acker (Revenant)\n\n");
 	
 	if (argc < 4) {
 		printf("To insert compressed data into a ROM:\n");

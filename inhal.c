@@ -81,7 +81,11 @@ int main (int argc, char **argv) {
 	if (inputsize > DATA_SIZE) {
 		printf("Error: File must be a maximum of 65,536 bytes!\n");
 		exit(-1);
+	} else if (!inputsize) {
+		printf("Error: Input file is empty!\n");
+		exit(-1);
 	}
+	
 	// read the file
 	fseek(infile, 0, SEEK_SET);
 	fread(unpacked, sizeof(uint8_t), inputsize, infile);
@@ -90,16 +94,21 @@ int main (int argc, char **argv) {
 	clock_t time = clock();
 	outputsize = pack(unpacked, inputsize, packed, fast);
 	time = clock() - time;
-	
-	// write the compressed data to the file
-	fseek(outfile, fileoffset, SEEK_SET);
-	fwrite((const void*)packed, 1, outputsize, outfile);
-	
-	printf("Compressed size:   % zd bytes\n", outputsize);
-	printf("Compression ratio:  %4.2f%%\n", 100 * (double)outputsize / inputsize);
-	printf("Compression time:   %4.3f seconds\n\n", (double)time / CLOCKS_PER_SEC);
-	
-	printf("Inserted at 0x%06X - 0x%06lX\n", fileoffset, ftell(outfile) - 1);
+
+	if (outputsize) {
+		// write the compressed data to the file
+		fseek(outfile, fileoffset, SEEK_SET);
+		fwrite((const void*)packed, 1, outputsize, outfile);
+		
+		printf("Compressed size:   % zu bytes\n", outputsize);
+		printf("Compression ratio:  %4.2f%%\n", 100 * (double)outputsize / inputsize);
+		printf("Compression time:   %4.3f seconds\n\n", (double)time / CLOCKS_PER_SEC);
+		
+		printf("Inserted at 0x%06X - 0x%06lX\n", fileoffset, ftell(outfile) - 1);
+	} else {
+		printf("Error: File could not be compressed because the resulting compressed data would\n"
+		       "       have been larger than 64 kb.\n");
+	}
 	
 	fclose(infile);
 	fclose(outfile);

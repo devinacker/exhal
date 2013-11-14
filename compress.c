@@ -52,8 +52,10 @@ uint16_t offsets[256][256];
 // Compresses a file of up to 64 kb.
 // unpacked/packed are 65536 byte buffers to read/from write to, 
 // inputsize is the length of the uncompressed data.
-// Returns the size of the compressed data in bytes.
-size_t pack(uint8_t *unpacked, uint32_t inputsize, uint8_t *packed, int fast) {
+// Returns the size of the compressed data in bytes, or 0 if compression failed.
+size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
+	if (inputsize > DATA_SIZE) return 0;
+
 	// current input/output positions
 	uint32_t  inpos = 0;
 	uint32_t  outpos = 0;
@@ -87,6 +89,9 @@ size_t pack(uint8_t *unpacked, uint32_t inputsize, uint8_t *packed, int fast) {
 		
 		// if the backref is a better candidate, use it
 		if (backref.size > 3 && backref.size > rle.size) {
+			if (outpos + dontpacksize + backref.size >= DATA_SIZE)
+				return 0;
+		
 			// flush the raw data buffer first
 			outpos += write_raw(packed, outpos, dontpack, dontpacksize);
 			dontpacksize = 0;
@@ -96,8 +101,10 @@ size_t pack(uint8_t *unpacked, uint32_t inputsize, uint8_t *packed, int fast) {
 		}
 		// or if the RLE is a better candidate, use it instead
 		else if (rle.size >= 2) {
+			if (outpos + dontpacksize + rle.size >= DATA_SIZE)
+				return 0;
+		
 			// flush the raw data buffer first
-			
 			outpos += write_raw(packed, outpos, dontpack, dontpacksize);
 			dontpacksize = 0;
 			
@@ -109,6 +116,9 @@ size_t pack(uint8_t *unpacked, uint32_t inputsize, uint8_t *packed, int fast) {
 		else {
 			dontpack[dontpacksize++] = unpacked[inpos++];
 			
+			if (outpos + dontpacksize >= DATA_SIZE)
+				return 0;
+			
 			// if the raw data buffer is full, flush it
 			if (dontpacksize == LONG_RUN_SIZE) {
 				outpos += write_raw(packed, outpos, dontpack, dontpacksize);
@@ -118,6 +128,9 @@ size_t pack(uint8_t *unpacked, uint32_t inputsize, uint8_t *packed, int fast) {
 	}
 	
 	// flush any remaining uncompressed data
+	if (outpos + dontpacksize + 1 > DATA_SIZE)
+		return 0;
+	
 	outpos += write_raw(packed, outpos, dontpack, dontpacksize);
 	
 	//add the terminating byte
@@ -128,7 +141,7 @@ size_t pack(uint8_t *unpacked, uint32_t inputsize, uint8_t *packed, int fast) {
 
 // Decompresses a file of up to 64 kb.
 // unpacked/packed are 65536 byte buffers to read/from write to, 
-// Returns the size of the uncompressed data in bytes.
+// Returns the size of the uncompressed data in bytes or 0 if decompression failed.
 size_t unpack(uint8_t *packed, uint8_t *unpacked) {
 	// current input/output positions
 	uint32_t  inpos = 0;
@@ -154,6 +167,12 @@ size_t unpack(uint8_t *packed, uint8_t *unpacked) {
 		} else {
 			command = input >> 5;
 			length = (input & 0x1F) + 1;
+		}
+		
+		// don't try to decompress > 64kb
+		if (((command == 2) && (outpos + 2*length > DATA_SIZE))
+		     || (outpos + length > DATA_SIZE)) {
+			return 0;
 		}
 		
 		switch (command) {
@@ -250,12 +269,15 @@ size_t unpack(uint8_t *packed, uint8_t *unpacked) {
 }
 
 // Decompress data from an offset into a file
-size_t unpack_from_file (FILE *file, unsigned int offset, uint8_t *unpacked) {
+size_t unpack_from_file (FILE *file, size_t offset, uint8_t *unpacked) {
 	uint8_t packed[DATA_SIZE];
 	
 	fseek(file, offset, SEEK_SET);
 	fread((void*)packed, DATA_SIZE, 1, file);
-	return unpack(packed, unpacked);
+	if (!feof(file))
+		return unpack(packed, unpacked);
+		
+	return 0;
 }
 
 // Reverses the order of bits in a byte.
@@ -280,7 +302,7 @@ uint8_t rotate (uint8_t i) {
 // fast enables faster compression by ignoring sequence RLE.
 rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 	rle_t candidate = { 0, 0, 0 };
-	int size;
+	size_t size;
 	
 	// check for possible 8-bit RLE
 	for (size = 0; size <= LONG_RUN_SIZE && current + size < start + insize; size++)

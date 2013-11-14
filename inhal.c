@@ -89,6 +89,10 @@ int main (int argc, char **argv) {
 	// read the file
 	fseek(infile, 0, SEEK_SET);
 	fread(unpacked, sizeof(uint8_t), inputsize, infile);
+	if (ferror(infile)) {
+		perror("Error reading input file");
+		exit(-1);
+	}
 	
 	// compress the file
 	clock_t time = clock();
@@ -99,6 +103,10 @@ int main (int argc, char **argv) {
 		// write the compressed data to the file
 		fseek(outfile, fileoffset, SEEK_SET);
 		fwrite((const void*)packed, 1, outputsize, outfile);
+		if (ferror(outfile)) {
+			perror("Error writing output file");
+			exit(-1);
+		}
 		
 		printf("Compressed size:   % zu bytes\n", outputsize);
 		printf("Compression ratio:  %4.2f%%\n", 100 * (double)outputsize / inputsize);

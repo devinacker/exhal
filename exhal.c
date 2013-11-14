@@ -58,6 +58,10 @@ int main (int argc, char **argv) {
 		// write the uncompressed data to the file
 		fseek(outfile, 0, SEEK_SET);
 		fwrite((const void*)unpacked, 1, outputsize, outfile);
+		if (ferror(outfile)) {
+			perror("Error writing output file");
+			exit(-1);
+		}
 		
 		printf("Uncompressed size: %zu bytes\n", outputsize);
 	} else {

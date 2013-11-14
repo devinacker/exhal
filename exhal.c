@@ -17,9 +17,10 @@ int main (int argc, char **argv) {
 	printf("exhal - " __DATE__ " " __TIME__"\nby Devin Acker (Revenant)\n\n");
 	
 	if (argc != 4) {
-		printf("Usage:\n%s romfile offset outfile\n", argv[0]);
-		printf("Example: %s kirbybowl.sfc 0x70000 test.bin\n\n", argv[0]);
-		printf("offset can be in either decimal or hex.\n");
+		fprintf(stderr, "Usage:\n%s romfile offset outfile\n"
+		                "Example: %s kirbybowl.sfc 0x70000 test.bin\n\n"
+		                "offset can be in either decimal or hex.\n",
+		                argv[0], argv[0]);
 		exit(-1);
 	}
 	
@@ -28,14 +29,14 @@ int main (int argc, char **argv) {
 	// open ROM file for input
 	infile = fopen(argv[1], "rb");
 	if (!infile) {
-		printf("Error: unable to open %s\n", argv[1]);
+		fprintf(stderr, "Error: unable to open %s\n", argv[1]);
 		exit(-1);
 	}
 	
 	// open target file for output
 	outfile = fopen(argv[3], "wb");
 	if (!outfile) {
-		printf("Error: unable to open %s\n", argv[1]);
+		fprintf(stderr, "Error: unable to open %s\n", argv[3]);
 		exit(-1);
 	}
 	
@@ -49,8 +50,8 @@ int main (int argc, char **argv) {
 	if (fileoffset < ftell(infile)) {
 		outputsize = unpack_from_file(infile, fileoffset, unpacked);
 	} else {
-		printf("Error: Unable to decompress %s because an invalid offset was specified\n"
-		       "       (must be between zero and 0x%X).\n", argv[1], ftell(infile));
+		fprintf(stderr, "Error: Unable to decompress %s because an invalid offset was specified\n"
+		                "       (must be between zero and 0x%X).\n", argv[1], ftell(infile));
 		outputsize = 0;
 	}
 	
@@ -65,8 +66,8 @@ int main (int argc, char **argv) {
 		
 		printf("Uncompressed size: %zu bytes\n", outputsize);
 	} else {
-		printf("Error: Unable to decompress %s because the output would have been larger than\n"
-		       "       64 kb. The input at 0x%X is likely not valid compressed data.\n", argv[1], fileoffset);
+		fprintf(stderr, "Error: Unable to decompress %s because the output would have been larger than\n"
+		                "       64 kb. The input at 0x%X is likely not valid compressed data.\n", argv[1], fileoffset);
 	}
 	
 	fclose(infile);

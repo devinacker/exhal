@@ -19,17 +19,18 @@ int main (int argc, char **argv) {
 	printf("inhal - " __DATE__ " " __TIME__"\nby Devin Acker (Revenant)\n\n");
 	
 	if (argc < 4) {
-		printf("To insert compressed data into a ROM:\n");
-		printf("%s [-fast] infile romfile offset\n", argv[0]);
+		fprintf(stderr, "To insert compressed data into a ROM:\n"
+		                "%s [-fast] infile romfile offset\n"
+						
+		                "To write compressed data to a new file:\n" 
+		                "%s [-fast] -n infile outfile\n\n"
+						
+		                "Running with the -fast switch increases compression speed at the expense of size.\n"
 		
-		printf("To write compressed data to a new file:\n");
-		printf("%s [-fast] -n infile outfile\n\n", argv[0]);
-		
-		printf("Running with the -fast switch increases compression speed at the expense of size.\n");
-		
-		printf("\nExample:\n%s -fast test.chr kirbybowl.sfc 0x70000\n", argv[0]);
-		printf("%s -n test.chr test-packed.bin\n\n", argv[0]);
-		printf("offset can be in either decimal or hex.\n");
+		                "\nExample:\n%s -fast test.chr kirbybowl.sfc 0x70000\n"
+		                "%s -n test.chr test-packed.bin\n\n"
+		                "offset can be in either decimal or hex.\n",
+		                argv[0], argv[0], argv[0], argv[0]);
 		exit(-1);
 	}
 	
@@ -60,11 +61,11 @@ int main (int argc, char **argv) {
 	}
 	
 	if (!infile) {
-		printf("Error: unable to open input file\n");
+		fprintf(stderr, "Error: unable to open input file\n");
 		exit(-1);
 	}
 	if (!outfile) {
-		printf("Error: unable to open output file\n");
+		fprintf(stderr, "Error: unable to open output file\n");
 		exit(-1);
 	}
 	
@@ -76,13 +77,13 @@ int main (int argc, char **argv) {
 	fseek(infile, 0, SEEK_END);
 	inputsize = ftell(infile);
 	
-	printf("Uncompressed size: %zd bytes\n", inputsize);
+	printf("Uncompressed size:  %zd bytes\n", inputsize);
 	
 	if (inputsize > DATA_SIZE) {
-		printf("Error: File must be a maximum of 65,536 bytes!\n");
+		fprintf(stderr, "Error: File must be a maximum of 65,536 bytes!\n");
 		exit(-1);
 	} else if (!inputsize) {
-		printf("Error: Input file is empty!\n");
+		fprintf(stderr, "Error: Input file is empty!\n");
 		exit(-1);
 	}
 	
@@ -114,8 +115,8 @@ int main (int argc, char **argv) {
 		
 		printf("Inserted at 0x%06X - 0x%06lX\n", fileoffset, ftell(outfile) - 1);
 	} else {
-		printf("Error: File could not be compressed because the resulting compressed data would\n"
-		       "       have been larger than 64 kb.\n");
+		fprintf(stderr, "Error: File could not be compressed because the resulting compressed data would\n"
+		                "       have been larger than 64 kb.\n");
 	}
 	
 	fclose(infile);

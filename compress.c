@@ -274,7 +274,7 @@ size_t unpack_from_file (FILE *file, size_t offset, uint8_t *unpacked) {
 	
 	fseek(file, offset, SEEK_SET);
 	fread((void*)packed, DATA_SIZE, 1, file);
-	if (!feof(file))
+	if (!ferror(file))
 		return unpack(packed, unpacked);
 		
 	return 0;

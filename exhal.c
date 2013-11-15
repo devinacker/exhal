@@ -52,7 +52,7 @@ int main (int argc, char **argv) {
 	} else {
 		fprintf(stderr, "Error: Unable to decompress %s because an invalid offset was specified\n"
 		                "       (must be between zero and 0x%X).\n", argv[1], ftell(infile));
-		outputsize = 0;
+		exit(-1);
 	}
 	
 	if (outputsize) {

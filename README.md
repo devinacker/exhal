@@ -1,6 +1,6 @@
 # exhal / inhal
 **HAL Laboratory NES/SNES/GB (de)compression tools**  
-**(version 1.10)**  
+**(version 1.20)**  
 by Devin Acker (Revenant), 2013  
 https://github.com/devinacker
 
@@ -8,9 +8,9 @@ exhal and inhal are tools designed to decompress and recompress/insert data used
 
 Due to the design of the original decompression algorithm (and hardware limitations), the size of a file to be compressed is limited to 64 kilobytes (65,536 bytes). Please note that depending on which system you are working with, the actual useful limit may be much smaller.
 
-Files compressed using exhal can often be smaller than their original compressed forms in the source ROMs, likely due to some shortcuts taken by the original development tools. In addition, version 1.10 nicely optimizes the compression process and is about 4x faster than before.
+The compression routine used by inhal is very fast and capable of producing output which is smaller than that of HAL's original compressor.
 
-Source code is available at https://github.com/devinacker and is released under the terms of the MIT license. See COPYING.txt for legal info.
+Source code is available at https://github.com/devinacker and is released under the terms of the MIT license. See COPYING.txt for legal info. You are welcome to use compress.c in your own projects (if you do, I'd like to hear about it!)
 
 **To use exhal (the decompressor):**  
 exhal romfile offset outfile
@@ -62,6 +62,11 @@ Also note, unfortunately, that exhal cannot automatically detect or locate compr
 
 These tools were originally used in the development of my Kirby's Dream Course editor. I hope you find your own exciting use for them. (I'm not the only Kirby hacker in the West, right? *sob*)
 
+## Changes
+
+* **v1.20**: index byte triples using uthash for even faster searching, nicer error handling
+* **v1.10**: index byte pairs for faster searching during compression, misc bug fixes
+
 ## Contact me
 
 * Email : d at revenant1.net
@@ -77,5 +82,5 @@ These tools were originally used in the development of my Kirby's Dream Course e
 
 * andlabs for helping me make the list of supported games
 * BMF54123 for naming the programs
-* Tiiffi for misc. Mac OS X build fixes
+* Tiiffi and Anthony J. Bentley for misc. build fixes
 * You for downloading (and using?) my software

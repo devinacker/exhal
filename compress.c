@@ -116,12 +116,12 @@ size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
 	}
 	
 	while (inpos < inputsize) {
+		// check for a potential RLE
+		rle = rle_check(unpacked, unpacked + inpos, inputsize, fast);
 		// check for a potential back reference
-		if (inpos < inputsize - 3)
+		if (rle.size < LONG_RUN_SIZE && inpos < inputsize - 3)
 			backref = ref_search(unpacked, unpacked + inpos, inputsize, fast);
 		else backref.size = 0;
-		// and for a potential RLE
-		rle = rle_check(unpacked, unpacked + inpos, inputsize, fast);
 		
 		// if the backref is a better candidate, use it
 		if (backref.size > 3 && backref.size > rle.size) {

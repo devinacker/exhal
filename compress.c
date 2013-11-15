@@ -75,6 +75,7 @@ backref_t  ref_search (uint8_t*, uint8_t*, uint32_t, int);
 uint16_t   write_backref (uint8_t*, uint16_t, backref_t);
 uint16_t   write_rle (uint8_t*, uint16_t, rle_t);
 uint16_t   write_raw (uint8_t*, uint16_t, uint8_t*, uint16_t);
+void       free_offsets();
 
 // index of first locations of byte-tuples used to speed up LZ string search (unfinished)
 tuple_t *offsets = NULL;
@@ -124,8 +125,10 @@ size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
 		
 		// if the backref is a better candidate, use it
 		if (backref.size > 3 && backref.size > rle.size) {
-			if (outpos + dontpacksize + backref.size >= DATA_SIZE)
+			if (outpos + dontpacksize + backref.size >= DATA_SIZE) {
+				free_offsets();
 				return 0;
+			}
 		
 			// flush the raw data buffer first
 			outpos += write_raw(packed, outpos, dontpack, dontpacksize);
@@ -136,8 +139,10 @@ size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
 		}
 		// or if the RLE is a better candidate, use it instead
 		else if (rle.size >= 2) {
-			if (outpos + dontpacksize + rle.size >= DATA_SIZE)
+			if (outpos + dontpacksize + rle.size >= DATA_SIZE) {
+				free_offsets();
 				return 0;
+			}
 		
 			// flush the raw data buffer first
 			outpos += write_raw(packed, outpos, dontpack, dontpacksize);
@@ -151,8 +156,10 @@ size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
 		else {
 			dontpack[dontpacksize++] = unpacked[inpos++];
 			
-			if (outpos + dontpacksize >= DATA_SIZE)
+			if (outpos + dontpacksize >= DATA_SIZE) {
+				free_offsets();
 				return 0;
+			}
 			
 			// if the raw data buffer is full, flush it
 			if (dontpacksize == LONG_RUN_SIZE) {
@@ -163,15 +170,26 @@ size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
 	}
 	
 	// flush any remaining uncompressed data
-	if (outpos + dontpacksize + 1 > DATA_SIZE)
+	if (outpos + dontpacksize + 1 > DATA_SIZE) {
+		free_offsets();
 		return 0;
+	}
 	
 	outpos += write_raw(packed, outpos, dontpack, dontpacksize);
 	
 	//add the terminating byte
 	packed[outpos++] = 0xFF;
 	
+	free_offsets();
 	return (size_t)outpos;
+}
+
+void free_offsets() {
+	tuple_t *curr, *temp;
+	HASH_ITER(hh, offsets, curr, temp) {
+		HASH_DEL(offsets, curr);
+		free(curr);
+	}
 }
 
 // Decompresses a file of up to 64 kb.

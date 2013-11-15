@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "compress.h"
+#include "uthash.h"
 
 #ifdef DEBUG_OUT
 #define debug(...) printf(__VA_ARGS__)
@@ -39,6 +40,15 @@ typedef struct {
 	method_e method;
 } rle_t;
 
+// used to hash and index byte tuples
+typedef struct {
+	int      bytes;
+	uint16_t offset;
+	UT_hash_handle hh;
+} tuple_t;
+// turn 3 bytes into a single integer for quicker hashing/searching
+#define COMBINE(x, y, z) ((x << 16) | (y << 8) | z)
+
 uint8_t    rotate (uint8_t);
 rle_t      rle_check (uint8_t*, uint8_t*, uint32_t, int);
 backref_t  ref_search (uint8_t*, uint8_t*, uint32_t, int);
@@ -46,8 +56,8 @@ uint16_t   write_backref (uint8_t*, uint16_t, backref_t);
 uint16_t   write_rle (uint8_t*, uint16_t, rle_t);
 uint16_t   write_raw (uint8_t*, uint16_t, uint8_t*, uint16_t);
 
-// index of first locations of byte-pairs used to speed up LZ string search (unfinished)
-uint16_t offsets[256][256];
+// index of first locations of byte-tuples used to speed up LZ string search (unfinished)
+tuple_t *offsets = NULL;
 
 // Compresses a file of up to 64 kb.
 // unpacked/packed are 65536 byte buffers to read/from write to, 
@@ -70,13 +80,18 @@ size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
 	
 	debug("inputsize = %d\n", inputsize);
 	
-	memset(&offsets[0][0], 0xFF, sizeof(offsets));
-	//iterate over file and mark the location of every possible byte pair
 	for (uint16_t i = 0; i < inputsize - 3; i++) {
-		uint8_t b1 = unpacked[i];
-		uint8_t b2 = unpacked[i + 1];
-		if (i < offsets[b1][b2])
-			offsets[b1][b2] = i;
+		tuple_t *tuple;
+		int currbytes = COMBINE(unpacked[i], unpacked[i+1], unpacked[i+2]);
+		
+		// has this one been indexed already
+		HASH_FIND_INT(offsets, &currbytes, tuple);
+		if (!tuple) {
+			tuple = (tuple_t*)malloc(sizeof(tuple_t));
+			tuple->bytes = currbytes;
+			tuple->offset = i;
+			HASH_ADD_INT(offsets, bytes, tuple);
+		}
 	}
 	
 	while (inpos < inputsize) {
@@ -360,15 +375,15 @@ rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 // fast enables fast mode which only uses regular forward references
 backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 	backref_t candidate = { 0, 0, 0 };
-	uint16_t size, offset;
-	uint8_t b1, b2;
+	uint16_t size;
+	int currbytes;
+	tuple_t *tuple;
 	
 	// references to previous data which goes in the same direction
 	// see if this byte pair exists elsewhere, then start searching.
-	b1 = current[0];
-	b2 = current[1];
-	offset = offsets[b1][b2];
-	if (offset != 0xFFFF) for (uint8_t *pos = start + offset; pos < current; pos++) {
+	currbytes = COMBINE(current[0], current[1], current[2]);
+	HASH_FIND_INT(offsets, &currbytes, tuple);
+	if (tuple) for (uint8_t *pos = start + tuple->offset; pos < current; pos++) {
 		// see how many bytes in a row are the same between the current uncompressed data
 		// and the data at the position being searched
 		for (size = 0; size <= LONG_RUN_SIZE && current + size < start + insize; size++) 
@@ -390,10 +405,9 @@ backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, int fas
 	
 	// references to data where the bits are rotated
 	// see if this byte pair exists elsewhere, then start searching.
-	b1 = rotate(current[0]);
-	b2 = rotate(current[1]);
-	offset = offsets[b1][b2];
-	if (offset != 0xFFFF) for (uint8_t *pos = start + offset; pos < current; pos++) {	
+	currbytes = COMBINE(rotate(current[0]), rotate(current[1]), rotate(current[2]));
+	HASH_FIND_INT(offsets, &currbytes, tuple);
+	if (tuple) for (uint8_t *pos = start + tuple->offset; pos < current; pos++) {	
 		// now repeat the check with the bit rotation method
 		for (size = 0; size <= LONG_RUN_SIZE && current + size < start + insize; size++) 
 			if (pos[size] != rotate(current[size])) break;
@@ -411,11 +425,10 @@ backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, int fas
 	
 	// references to data which goes backwards
 	// see if this byte pair exists elsewhere, then start searching.
-	b1 = current[0];
-	b2 = current[1];
-	offset = offsets[b2][b1] + 1;
-	// 0xFFFF + 1 = 0
-	if (offset != 0) for (uint8_t *pos = start + offset; pos < current; pos++) {
+	currbytes = COMBINE(current[2], current[1], current[0]);
+	HASH_FIND_INT(offsets, &currbytes, tuple);
+	// add 2 to offset since we're starting at the end of the 3 byte sequence here
+	if (tuple) for (uint8_t *pos = start + tuple->offset + 2; pos < current; pos++) {
 		// now repeat the check but go backwards
 		for (size = 0; size <= LONG_RUN_SIZE && current + size < start + insize; size++)
 			if (start[pos - start - size] != current[size]) break;

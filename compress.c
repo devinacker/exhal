@@ -67,7 +67,7 @@ typedef struct {
 	UT_hash_handle hh;
 } tuple_t;
 // turn 3 bytes into a single integer for quicker hashing/searching
-#define COMBINE(x, y, z) ((x << 16) | (y << 8) | z)
+#define COMBINE(w, x, y, z) ((w << 24) | (x << 16) | (y << 8) | z)
 
 uint8_t    rotate (uint8_t);
 rle_t      rle_check (uint8_t*, uint8_t*, uint32_t, int);
@@ -101,9 +101,9 @@ size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
 	
 	debug("inputsize = %d\n", inputsize);
 	
-	for (uint16_t i = 0; i < inputsize - 3; i++) {
+	for (uint16_t i = 0; i < inputsize - 4; i++) {
 		tuple_t *tuple;
-		int currbytes = COMBINE(unpacked[i], unpacked[i+1], unpacked[i+2]);
+		int currbytes = COMBINE(unpacked[i], unpacked[i+1], unpacked[i+2], unpacked[i+3]);
 		
 		// has this one been indexed already
 		HASH_FIND_INT(offsets, &currbytes, tuple);
@@ -419,7 +419,7 @@ backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, int fas
 	
 	// references to previous data which goes in the same direction
 	// see if this byte pair exists elsewhere, then start searching.
-	currbytes = COMBINE(current[0], current[1], current[2]);
+	currbytes = COMBINE(current[0], current[1], current[2], current[3]);
 	HASH_FIND_INT(offsets, &currbytes, tuple);
 	if (tuple) for (uint8_t *pos = start + tuple->offset; pos < current; pos++) {
 		// see how many bytes in a row are the same between the current uncompressed data
@@ -443,7 +443,7 @@ backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, int fas
 	
 	// references to data where the bits are rotated
 	// see if this byte pair exists elsewhere, then start searching.
-	currbytes = COMBINE(rotate(current[0]), rotate(current[1]), rotate(current[2]));
+	currbytes = COMBINE(rotate(current[0]), rotate(current[1]), rotate(current[2]), rotate(current[3]));
 	HASH_FIND_INT(offsets, &currbytes, tuple);
 	if (tuple) for (uint8_t *pos = start + tuple->offset; pos < current; pos++) {	
 		// now repeat the check with the bit rotation method
@@ -463,7 +463,7 @@ backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, int fas
 	
 	// references to data which goes backwards
 	// see if this byte pair exists elsewhere, then start searching.
-	currbytes = COMBINE(current[2], current[1], current[0]);
+	currbytes = COMBINE(current[3], current[2], current[1], current[0]);
 	HASH_FIND_INT(offsets, &currbytes, tuple);
 	// add 2 to offset since we're starting at the end of the 3 byte sequence here
 	if (tuple) for (uint8_t *pos = start + tuple->offset + 2; pos < current; pos++) {

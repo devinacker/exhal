@@ -66,7 +66,7 @@ typedef struct {
 	uint16_t offset;
 	UT_hash_handle hh;
 } tuple_t;
-// turn 3 bytes into a single integer for quicker hashing/searching
+// turn 4 bytes into a single integer for quicker hashing/searching
 #define COMBINE(w, x, y, z) ((w << 24) | (x << 16) | (y << 8) | z)
 
 uint8_t    rotate (uint8_t);

@@ -465,8 +465,8 @@ backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, int fas
 	// see if this byte pair exists elsewhere, then start searching.
 	currbytes = COMBINE(current[3], current[2], current[1], current[0]);
 	HASH_FIND_INT(offsets, &currbytes, tuple);
-	// add 2 to offset since we're starting at the end of the 3 byte sequence here
-	if (tuple) for (uint8_t *pos = start + tuple->offset + 2; pos < current; pos++) {
+	// add 3 to offset since we're starting at the end of the 4 byte sequence here
+	if (tuple) for (uint8_t *pos = start + tuple->offset + 3; pos < current; pos++) {
 		// now repeat the check but go backwards
 		for (size = 0; size <= LONG_RUN_SIZE && current + size < start + insize; size++)
 			if (start[pos - start - size] != current[size]) break;

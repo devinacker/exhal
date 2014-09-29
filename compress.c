@@ -71,14 +71,11 @@ typedef struct {
 
 uint8_t    rotate (uint8_t);
 rle_t      rle_check (uint8_t*, uint8_t*, uint32_t, int);
-backref_t  ref_search (uint8_t*, uint8_t*, uint32_t, int);
+backref_t  ref_search (uint8_t*, uint8_t*, uint32_t, tuple_t*, int);
 uint16_t   write_backref (uint8_t*, uint16_t, backref_t);
 uint16_t   write_rle (uint8_t*, uint16_t, rle_t);
 uint16_t   write_raw (uint8_t*, uint16_t, uint8_t*, uint16_t);
-void       free_offsets();
-
-// index of first locations of byte-tuples used to speed up LZ string search (unfinished)
-tuple_t *offsets = NULL;
+void       free_offsets(tuple_t*);
 
 // Compresses a file of up to 64 kb.
 // unpacked/packed are 65536 byte buffers to read/from write to, 
@@ -98,6 +95,9 @@ size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
 	// used to collect data which should be written uncompressed
 	uint8_t  dontpack[LONG_RUN_SIZE];
 	uint16_t dontpacksize = 0;
+
+	// index of first locations of byte-tuples used to speed up LZ string search
+	tuple_t *offsets = NULL;
 	
 	debug("inputsize = %d\n", inputsize);
 	
@@ -120,13 +120,13 @@ size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
 		rle = rle_check(unpacked, unpacked + inpos, inputsize, fast);
 		// check for a potential back reference
 		if (rle.size < LONG_RUN_SIZE && inpos < inputsize - 3)
-			backref = ref_search(unpacked, unpacked + inpos, inputsize, fast);
+			backref = ref_search(unpacked, unpacked + inpos, inputsize, offsets, fast);
 		else backref.size = 0;
 		
 		// if the backref is a better candidate, use it
 		if (backref.size > 3 && backref.size > rle.size) {
 			if (outpos + dontpacksize + backref.size >= DATA_SIZE) {
-				free_offsets();
+				free_offsets(offsets);
 				return 0;
 			}
 		
@@ -140,7 +140,7 @@ size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
 		// or if the RLE is a better candidate, use it instead
 		else if (rle.size >= 2) {
 			if (outpos + dontpacksize + rle.size >= DATA_SIZE) {
-				free_offsets();
+				free_offsets(offsets);
 				return 0;
 			}
 		
@@ -157,7 +157,7 @@ size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
 			dontpack[dontpacksize++] = unpacked[inpos++];
 			
 			if (outpos + dontpacksize >= DATA_SIZE) {
-				free_offsets();
+				free_offsets(offsets);
 				return 0;
 			}
 			
@@ -171,7 +171,7 @@ size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
 	
 	// flush any remaining uncompressed data
 	if (outpos + dontpacksize + 1 > DATA_SIZE) {
-		free_offsets();
+		free_offsets(offsets);
 		return 0;
 	}
 	
@@ -180,11 +180,11 @@ size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
 	//add the terminating byte
 	packed[outpos++] = 0xFF;
 	
-	free_offsets();
+	free_offsets(offsets);
 	return (size_t)outpos;
 }
 
-void free_offsets() {
+void free_offsets(tuple_t *offsets) {
 	tuple_t *curr, *temp;
 	HASH_ITER(hh, offsets, curr, temp) {
 		HASH_DEL(offsets, curr);
@@ -411,7 +411,7 @@ rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 // Searches for the best possible back reference.
 // start and current are positions within the uncompressed input stream.
 // fast enables fast mode which only uses regular forward references
-backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
+backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, tuple_t *offsets, int fast) {
 	backref_t candidate = { 0, 0, 0 };
 	uint16_t size;
 	int currbytes;

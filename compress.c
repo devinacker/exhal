@@ -50,13 +50,13 @@ typedef enum {
 
 // used to store and compare backref candidates
 typedef struct {
-	uint16_t offset, size;
+	uint16_t offset, size, ahead;
 	method_e method;
 } backref_t;
 
 // used to store RLE candidates
 typedef struct {
-	uint16_t size, data;
+	uint16_t size, data, ahead;
 	method_e method;
 } rle_t;
 
@@ -81,7 +81,11 @@ void       free_offsets(tuple_t*);
 // unpacked/packed are 65536 byte buffers to read/from write to, 
 // inputsize is the length of the uncompressed data.
 // Returns the size of the compressed data in bytes, or 0 if compression failed.
-size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
+size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast)  {
+	return pack_la(unpacked, inputsize, packed, fast, 0);
+}
+
+size_t pack_la(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast, uint16_t lookahead) {
 	if (inputsize > DATA_SIZE) return 0;
 
 	// current input/output positions
@@ -89,8 +93,8 @@ size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
 	uint32_t  outpos = 0;
 
 	// backref and RLE compression candidates
-	backref_t backref;
-	rle_t     rle;
+	backref_t backref, backref_ahead;
+	rle_t     rle, rle_ahead;
 	
 	// used to collect data which should be written uncompressed
 	uint8_t  dontpack[LONG_RUN_SIZE];
@@ -116,21 +120,61 @@ size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
 	}
 	
 	while (inpos < inputsize) {
+		if (lookahead > (inputsize - inpos))
+			lookahead = inputsize - inpos;
+		
 		// check for a potential RLE
 		rle = rle_check(unpacked, unpacked + inpos, inputsize, fast);
+		for (unsigned la = 1; la <= lookahead; la++) {
+			rle_ahead = rle_check(unpacked, unpacked + inpos + la, inputsize, fast);
+			rle_ahead.ahead = la;
+			
+			if (rle_ahead.size - rle_ahead.ahead > rle.size - rle.ahead) {
+				debug("lookahead found new best RLE (%u bytes at %x -> %u bytes at %x)\n",
+				      rle.size, inpos + rle.ahead, rle_ahead.size, inpos + la);
+				rle = rle_ahead;
+			}
+		}
+		
 		// check for a potential back reference
-		if (rle.size < LONG_RUN_SIZE && inpos < inputsize - 3)
+		if (rle.size < LONG_RUN_SIZE && inpos < inputsize - 3) {
 			backref = ref_search(unpacked, unpacked + inpos, inputsize, offsets, fast);
-		else backref.size = 0;
+			
+			for (unsigned la = 1; la <= lookahead; la++) {
+				backref_ahead = ref_search(unpacked, unpacked + inpos + la, inputsize, offsets, fast);
+				backref_ahead.ahead = la;
+				
+				if (backref_ahead.size - backref_ahead.ahead > backref.size - backref.ahead) {
+					debug("lookahead found new best LZ (%u bytes at %x -> %u bytes at %x)\n",
+						  backref.size, inpos + backref.ahead, backref_ahead.size, inpos + la);
+					backref = backref_ahead;
+				}
+			}
+		}
+		else {
+			backref.size = 0;
+			backref.ahead = 0;
+		}
 		
 		// if the backref is a better candidate, use it
-		if (backref.size > 3 && backref.size > rle.size) {
-			if (outpos + dontpacksize + backref.size >= DATA_SIZE) {
+		if (backref.size - backref.ahead > 3 && (backref.size - backref.ahead) > (rle.size - rle.ahead)) {
+			if (outpos + dontpacksize + backref.size + backref.ahead >= DATA_SIZE) {
 				free_offsets(offsets);
 				return 0;
 			}
+			
+			// write any bytes that were skipped by lookahead
+			for (unsigned la = 0; la < backref.ahead; la++) {
+				dontpack[dontpacksize++] = unpacked[inpos++];
+				
+				// if the raw data buffer is full, flush it
+				if (dontpacksize == LONG_RUN_SIZE) {
+					outpos += write_raw(packed, outpos, dontpack, dontpacksize);
+					dontpacksize = 0;
+				}
+			}
 		
-			// flush the raw data buffer first
+			// flush the raw data buffer
 			outpos += write_raw(packed, outpos, dontpack, dontpacksize);
 			dontpacksize = 0;
 			
@@ -138,13 +182,24 @@ size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
 			inpos += backref.size;
 		}
 		// or if the RLE is a better candidate, use it instead
-		else if (rle.size >= 2) {
-			if (outpos + dontpacksize + rle.size >= DATA_SIZE) {
+		else if (rle.size - rle.ahead >= 2) {
+			if (outpos + dontpacksize + rle.size + rle.ahead >= DATA_SIZE) {
 				free_offsets(offsets);
 				return 0;
 			}
+			
+			// write any bytes that were skipped by lookahead
+			for (unsigned la = 0; la < rle.ahead; la++) {
+				dontpack[dontpacksize++] = unpacked[inpos++];
+				
+				// if the raw data buffer is full, flush it
+				if (dontpacksize == LONG_RUN_SIZE) {
+					outpos += write_raw(packed, outpos, dontpack, dontpacksize);
+					dontpacksize = 0;
+				}
+			}
 		
-			// flush the raw data buffer first
+			// flush the raw data buffer
 			outpos += write_raw(packed, outpos, dontpack, dontpacksize);
 			dontpacksize = 0;
 			
@@ -152,19 +207,24 @@ size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
 			inpos += rle.size;
 			
 		}
-		// otherwise, write this byte uncompressed
+		// otherwise, write any bytes uncompressed that we know aren't usable
 		else {
-			dontpack[dontpacksize++] = unpacked[inpos++];
-			
-			if (outpos + dontpacksize >= DATA_SIZE) {
-				free_offsets(offsets);
-				return 0;
-			}
-			
-			// if the raw data buffer is full, flush it
-			if (dontpacksize == LONG_RUN_SIZE) {
-				outpos += write_raw(packed, outpos, dontpack, dontpacksize);
-				dontpacksize = 0;
+			unsigned dp = (rle.ahead < backref.ahead) ? rle.ahead : backref.ahead;
+			if (!dp) dp++;
+
+			for (unsigned i = 0; i < dp; i++) {
+				dontpack[dontpacksize++] = unpacked[inpos++];
+				
+				if (outpos + dontpacksize >= DATA_SIZE) {
+					free_offsets(offsets);
+					return 0;
+				}
+				
+				// if the raw data buffer is full, flush it
+				if (dontpacksize == LONG_RUN_SIZE) {
+					outpos += write_raw(packed, outpos, dontpack, dontpacksize);
+					dontpacksize = 0;
+				}
 			}
 		}
 	}
@@ -354,7 +414,7 @@ uint8_t rotate (uint8_t i) {
 // start and current are positions within the uncompressed input stream.
 // fast enables faster compression by ignoring sequence RLE.
 rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
-	rle_t candidate = { 0, 0, 0 };
+	rle_t candidate = { 0, 0, 0, 0 };
 	size_t size;
 	
 	// check for possible 8-bit RLE
@@ -367,8 +427,6 @@ rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 		candidate.size = size;
 		candidate.data = current[0];
 		candidate.method = rle_8;
-		
-		debug("\trle_check: found new candidate (size = %d, method = %d)\n", candidate.size, candidate.method);
 	}
 	
 	// check for possible 16-bit RLE
@@ -384,8 +442,6 @@ rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 		candidate.size = size;
 		candidate.data = first;
 		candidate.method = rle_16;
-		
-		debug("\trle_check: found new candidate (size = %d, method = %d)\n", candidate.size, candidate.method);
 	}
 	
 	// fast mode: don't use sequence RLE
@@ -401,8 +457,6 @@ rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 		candidate.size = size;
 		candidate.data = current[0];
 		candidate.method = rle_seq;
-		
-		debug("\trle_check: found new candidate (size = %d, method = %d)\n", candidate.size, candidate.method);
 	}
 	
 	return candidate;
@@ -412,7 +466,7 @@ rle_t rle_check (uint8_t *start, uint8_t *current, uint32_t insize, int fast) {
 // start and current are positions within the uncompressed input stream.
 // fast enables fast mode which only uses regular forward references
 backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, tuple_t *offsets, int fast) {
-	backref_t candidate = { 0, 0, 0 };
+	backref_t candidate = { 0, 0, 0, 0 };
 	uint16_t size;
 	int currbytes;
 	tuple_t *tuple;
@@ -433,8 +487,6 @@ backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, tuple_t
 			candidate.size = size;
 			candidate.offset = pos - start;
 			candidate.method = lz_norm;
-			
-			debug("\tref_search: found new candidate (offset: %4x, size: %d, method = %d)\n", candidate.offset, candidate.size, candidate.method);
 		}
 	}
 	
@@ -456,8 +508,6 @@ backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, tuple_t
 			candidate.size = size;
 			candidate.offset = pos - start;
 			candidate.method = lz_rot;
-			
-			debug("\tref_search: found new candidate (offset: %4x, size: %d, method = %d)\n", candidate.offset, candidate.size, candidate.method);
 		}
 	}
 	
@@ -477,8 +527,6 @@ backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, tuple_t
 			candidate.size = size;
 			candidate.offset = pos - start;
 			candidate.method = lz_rev;
-			
-			debug("\tref_search: found new candidate (offset: %4x, size: %d, method = %d)\n", candidate.offset, candidate.size, candidate.method);
 		}
 	}
 	
@@ -490,8 +538,6 @@ backref_t ref_search (uint8_t *start, uint8_t *current, uint32_t insize, tuple_t
 uint16_t write_backref (uint8_t *out, uint16_t outpos, backref_t backref) {
 	uint16_t size = backref.size - 1;
 	int outsize;
-	
-	debug("write_backref: writing backref to %4x, size %d (method %d)\n", backref.offset, backref.size, backref.method);
 	
 	// long run
 	if (size >= RUN_SIZE) {
@@ -528,8 +574,6 @@ uint16_t write_rle (uint8_t *out, uint16_t outpos, rle_t rle) {
 	else
 		size = rle.size - 1;
 	
-	debug("write_rle: writing %d bytes of data 0x%02x (method %d)\n", rle.size, rle.data, rle.method);
-	
 	// long run
 	if (size >= RUN_SIZE) {
 		// write command byte / MSB of size
@@ -561,14 +605,6 @@ uint16_t write_rle (uint8_t *out, uint16_t outpos, rle_t rle) {
 // Returns number of bytes written.
 uint16_t write_raw (uint8_t *out, uint16_t outpos, uint8_t *in, uint16_t insize) {
 	if (!insize) return 0;
-
-#ifdef DEBUG_OUT
-	printf("write_raw: writing %d bytes unpacked data: ", insize);
-	for (int i = 0; i < insize; i++)
-		printf("%02x ", in[i]);
-	
-	printf("\n");
-#endif
 
 	uint16_t size = insize - 1;
 	int outsize;

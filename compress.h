@@ -38,6 +38,7 @@ extern "C" {
 #define RUN_SIZE      32
 #define LONG_RUN_SIZE 1024
 
+size_t pack_la(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast, uint16_t lookahead);
 size_t pack   (uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast);
 size_t unpack (uint8_t *packed, uint8_t *unpacked);
 

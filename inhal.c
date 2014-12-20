@@ -37,12 +37,16 @@ int main (int argc, char **argv) {
 	
 	if (argc < 4) {
 		fprintf(stderr, "To insert compressed data into a ROM:\n"
-		                "%s [-fast] infile romfile offset\n"
+		                "%s [-fast] [-la n] infile romfile offset\n"
 						
 		                "To write compressed data to a new file:\n" 
-		                "%s [-fast] -n infile outfile\n\n"
+		                "%s [-fast] [-la n] -n infile outfile\n\n"
 						
-		                "Running with the -fast switch increases compression speed at the expense of size.\n"
+		                "Running with the -fast switch speeds up compression at the expense of size.\n"
+		                "Running with the -la switch (where 'n' is an integer) will \"look ahead\" up to\n"
+		                "n bytes into the input stream, for cases in which compressing less aggressively\n"
+		                "might yield smaller output. This can improve compression at the expense of\n"
+		                "speed, and is not usually necessary.\n"
 		
 		                "\nExample:\n%s -fast test.chr kirbybowl.sfc 0x70000\n"
 		                "%s -n test.chr test-packed.bin\n\n"
@@ -52,19 +56,29 @@ int main (int argc, char **argv) {
 	}
 	
 	FILE   *infile, *outfile;
-	int    fileoffset;
-	int    newfile = 0;
-	int    fast    = 0;
+	int      fileoffset;
+	int      newfile   = 0;
+	int      fast      = 0;
+	uint16_t lookahead = 0;
 	
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "-n"))
 			newfile = 1;
 		else if (!strcmp(argv[i], "-fast")) 
 			fast = 1;
+		else if (!strcmp(argv[i], "-la"))
+			lookahead = (uint16_t)atoi(argv[++i]);
 	}
 	
 	if (fast)
 		printf("Fast compression enabled.\n");
+	
+	// limit lookahead to 3 bytes since anything more doesn't really have useful results
+	// (due to some properties of the compression format itself)
+	if (lookahead > 3)
+		lookahead = 3;
+	if (lookahead)
+		printf("%u-byte look-ahead enabled.\n", lookahead);
 		
 	// check for -n switch
 	if (newfile) {
@@ -114,7 +128,7 @@ int main (int argc, char **argv) {
 	
 	// compress the file
 	clock_t time = clock();
-	outputsize = pack(unpacked, inputsize, packed, fast);
+	outputsize = pack_la(unpacked, inputsize, packed, fast, lookahead);
 	time = clock() - time;
 
 	if (outputsize) {

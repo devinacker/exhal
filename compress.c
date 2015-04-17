@@ -4,7 +4,7 @@
 	This code is released under the terms of the MIT license.
 	See COPYING.txt for details.
 	
-	Copyright (c) 2013 Devin Acker
+	Copyright (c) 2013-2015 Devin Acker
 
 	Permission is hereby granted, free of charge, to any person obtaining a copy
 	of this software and associated documentation files (the "Software"), to deal
@@ -101,7 +101,7 @@ size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
 	
 	debug("inputsize = %d\n", inputsize);
 	
-	for (uint16_t i = 0; i < inputsize - 4; i++) {
+	for (uint16_t i = 0; inputsize >= 4 && i < inputsize - 4; i++) {
 		tuple_t *tuple;
 		int currbytes = COMBINE(unpacked[i], unpacked[i+1], unpacked[i+2], unpacked[i+3]);
 		
@@ -119,7 +119,7 @@ size_t pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
 		// check for a potential RLE
 		rle = rle_check(unpacked, unpacked + inpos, inputsize, fast);
 		// check for a potential back reference
-		if (rle.size < LONG_RUN_SIZE && inpos < inputsize - 3)
+		if (rle.size < LONG_RUN_SIZE && inputsize >= 3 && inpos < inputsize - 3)
 			backref = ref_search(unpacked, unpacked + inpos, inputsize, offsets, fast);
 		else backref.size = 0;
 		
@@ -224,7 +224,7 @@ size_t unpack(uint8_t *packed, uint8_t *unpacked) {
 		
 		// don't try to decompress > 64kb
 		if (((command == 2) && (outpos + 2*length > DATA_SIZE))
-		     || (outpos + length > DATA_SIZE)) {
+			 || (outpos + length > DATA_SIZE)) {
 			return 0;
 		}
 		

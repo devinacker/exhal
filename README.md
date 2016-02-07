@@ -1,7 +1,7 @@
 # exhal / inhal
 **HAL Laboratory NES/SNES/GB (de)compression tools**  
-**(version 1.20)**  
-by Devin Acker (Revenant), 2013  
+**(version 1.21)**  
+by Devin Acker (Revenant), 2013-2015
 https://github.com/devinacker
 
 exhal and inhal are tools designed to decompress and recompress/insert data used by several NES, SNES and Game Boy games developed by HAL Laboratory. 
@@ -61,11 +61,6 @@ This is a list of games which are known to use the supported compression method,
 Also note, unfortunately, that exhal cannot automatically detect or locate compressed data. The included file "gamenotes.txt" contains an incomplete list of decompression routine addresses to make searching easier.
 
 These tools were originally used in the development of my Kirby's Dream Course editor. I hope you find your own exciting use for them. (I'm not the only Kirby hacker in the West, right? *sob*)
-
-## Changes
-
-* **v1.20**: index byte triples using uthash for even faster searching, nicer error handling
-* **v1.10**: index byte pairs for faster searching during compression, misc bug fixes
 
 ## Contact me
 

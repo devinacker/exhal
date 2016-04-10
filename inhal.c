@@ -94,7 +94,7 @@ int main (int argc, char **argv) {
 	fseek(infile, 0, SEEK_END);
 	inputsize = ftell(infile);
 	
-	printf("Uncompressed size:  %zd bytes\n", inputsize);
+	printf("Uncompressed size:  %lu bytes\n", (unsigned long)inputsize);
 	
 	if (inputsize > DATA_SIZE) {
 		fprintf(stderr, "Error: File must be a maximum of 65,536 bytes!\n");
@@ -126,7 +126,7 @@ int main (int argc, char **argv) {
 			exit(-1);
 		}
 		
-		printf("Compressed size:   % zu bytes\n", outputsize);
+		printf("Compressed size:    %lu bytes\n", (unsigned long)outputsize);
 		printf("Compression ratio:  %4.2f%%\n", 100 * (double)outputsize / inputsize);
 		printf("Compression time:   %4.3f seconds\n\n", (double)time / CLOCKS_PER_SEC);
 		

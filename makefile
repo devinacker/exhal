@@ -4,7 +4,7 @@
 
 CFLAGS  += -std=c99 -Os -Wall -s -fpic
 # Add extension when compiling for Windows
-ifdef SystemRoot
+ifeq ($(OS), Windows_NT)
 	CC  = gcc 
 	EXT = .exe
         LIBEXT = .dll

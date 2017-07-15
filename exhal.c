@@ -68,7 +68,7 @@ int main (int argc, char **argv) {
 		outputsize = unpack_from_file(infile, fileoffset, unpacked);
 	} else {
 		fprintf(stderr, "Error: Unable to decompress %s because an invalid offset was specified\n"
-		                "       (must be between zero and 0x%X).\n", argv[1], ftell(infile));
+		                "       (must be between zero and 0x%lX).\n", argv[1], ftell(infile));
 		exit(-1);
 	}
 	
@@ -81,10 +81,10 @@ int main (int argc, char **argv) {
 			exit(-1);
 		}
 		
-		printf("Uncompressed size: %zu bytes\n", outputsize);
+		printf("Uncompressed size: %lu bytes\n", (unsigned long)outputsize);
 	} else {
 		fprintf(stderr, "Error: Unable to decompress %s because the output would have been larger than\n"
-		                "       64 kb. The input at 0x%X is likely not valid compressed data.\n", argv[1], fileoffset);
+		                "       64 kb. The input at 0x%lX is likely not valid compressed data.\n", argv[1], (unsigned long)fileoffset);
 	}
 	
 	fclose(infile);

@@ -1,7 +1,7 @@
 /*
 	exhal / inhal (de)compression routines
 
-	Copyright (c) 2013 Devin Acker
+	Copyright (c) 2013-2018 Devin Acker
 
 	Permission is hereby granted, free of charge, to any person obtaining a copy
 	of this software and associated documentation files (the "Software"), to deal
@@ -35,13 +35,24 @@ extern "C" {
 #include <string.h>
 
 #define DATA_SIZE     65536
-#define RUN_SIZE      32
-#define LONG_RUN_SIZE 1024
 
-size_t pack   (uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast);
-size_t unpack (uint8_t *packed, uint8_t *unpacked);
+typedef struct {
+	// Number of times each compression method occurred in the input
+	int methoduse[7];
+	// Size of compressed input
+	size_t inputsize;
+} unpack_stats_t;
 
-size_t unpack_from_file (FILE *file, size_t offset, uint8_t *unpacked);
+size_t exhal_pack  (uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast);
+size_t exhal_unpack(uint8_t *packed, uint8_t *unpacked, unpack_stats_t *stats);
+
+size_t exhal_unpack_from_file(FILE *file, size_t offset, uint8_t *unpacked, unpack_stats_t *stats);
+
+#ifdef EXHAL_OLD_NAMES
+#define pack(...)             exhal_pack(__VA_ARGS__)
+#define unpack(...)           exhal_unpack(__VA_ARGS__, NULL)
+#define unpack_from_file(...) exhal_unpack_from_file(__VA_ARGS__, NULL)
+#endif
 
 #ifdef __cplusplus
 }

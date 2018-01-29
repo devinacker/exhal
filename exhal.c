@@ -59,13 +59,14 @@ int main (int argc, char **argv) {
 	
 	size_t   outputsize, fileoffset;
 	uint8_t  unpacked[DATA_SIZE] = {0};
+	unpack_stats_t stats;
 	
 	fileoffset = strtol(argv[2], NULL, 0);
 	
 	// decompress the file
 	fseek(infile, 0, SEEK_END);
 	if (fileoffset < ftell(infile)) {
-		outputsize = unpack_from_file(infile, fileoffset, unpacked);
+		outputsize = exhal_unpack_from_file(infile, fileoffset, unpacked, &stats);
 	} else {
 		fprintf(stderr, "Error: Unable to decompress %s because an invalid offset was specified\n"
 		                "       (must be between zero and 0x%lX).\n", argv[1], ftell(infile));
@@ -81,7 +82,21 @@ int main (int argc, char **argv) {
 			exit(-1);
 		}
 		
-		printf("Uncompressed size: %lu bytes\n", (unsigned long)outputsize);
+#ifdef EXTRA_OUT
+		printf("Method             Uses\n");
+		printf("No compression   : %i\n", stats.methoduse[0]);
+		printf("RLE (8-bit)      : %i\n", stats.methoduse[1]);
+		printf("RLE (16-bit)     : %i\n", stats.methoduse[2]);
+		printf("RLE (sequence)   : %i\n", stats.methoduse[3]);
+		printf("Backref (normal) : %i\n", stats.methoduse[4]);
+		printf("Backref (rotate) : %i\n", stats.methoduse[5]);
+		printf("Backref (reverse): %i\n", stats.methoduse[6]);
+		printf("\n");
+#endif
+
+		printf("Compressed size:    %lu bytes\n", (unsigned long)stats.inputsize);
+		printf("Uncompressed size:  %lu bytes\n", (unsigned long)outputsize);
+		printf("Compression ratio:  %4.2f:1\n", (double)outputsize / stats.inputsize);
 	} else {
 		fprintf(stderr, "Error: Unable to decompress %s because the output would have been larger than\n"
 		                "       64 kb. The input at 0x%lX is likely not valid compressed data.\n", argv[1], (unsigned long)fileoffset);

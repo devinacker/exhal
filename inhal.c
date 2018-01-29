@@ -114,7 +114,7 @@ int main (int argc, char **argv) {
 	
 	// compress the file
 	clock_t time = clock();
-	outputsize = pack(unpacked, inputsize, packed, fast);
+	outputsize = exhal_pack(unpacked, inputsize, packed, fast);
 	time = clock() - time;
 
 	if (outputsize) {
@@ -127,7 +127,7 @@ int main (int argc, char **argv) {
 		}
 		
 		printf("Compressed size:    %lu bytes\n", (unsigned long)outputsize);
-		printf("Compression ratio:  %4.2f%%\n", 100 * (double)outputsize / inputsize);
+		printf("Compression ratio:  %4.2f:1\n", (double)inputsize / outputsize);
 		printf("Compression time:   %4.3f seconds\n\n", (double)time / CLOCKS_PER_SEC);
 		
 		printf("Inserted at 0x%06X - 0x%06lX\n", fileoffset, ftell(outfile) - 1);

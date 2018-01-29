@@ -8,7 +8,6 @@ CFLAGS  += -std=c99 -Os -Wall -s
 ifeq ($(OS), Windows_NT)
 	CC  = gcc 
 	EXT = .exe
-	RM  = del
 endif
 
 # Comment this line to suppress detailed decompression information on stdout
@@ -16,10 +15,13 @@ DEFINES += -DEXTRA_OUT
 # Uncomment this line to enable debug output
 #DEFINES += -DDEBUG_OUT
 
-all: inhal$(EXT) exhal$(EXT)
+all: inhal$(EXT) exhal$(EXT) sniff$(EXT)
 
 clean:
-	$(RM) inhal$(EXT) exhal$(EXT) compress.o
+	$(RM) inhal$(EXT) exhal$(EXT) sniff$(EXT) compress.o
+
+sniff$(EXT): sniff.c compress.o
+	$(CC) $(DEFINES) $(CFLAGS) -o sniff$(EXT) sniff.c compress.o
 	
 inhal$(EXT): inhal.c compress.o
 	$(CC) $(DEFINES) $(CFLAGS) -o inhal$(EXT) inhal.c compress.o

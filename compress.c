@@ -240,7 +240,7 @@ static void ref_search (const pack_context_t *this, backref_t *candidate, int fa
 	candidate->method = 0;
 	
 	// references to previous data which goes in the same direction
-	// see if this byte pair exists elsewhere, then start searching.
+	// see if this byte sequence exists elsewhere, then start searching.
 	currbytes = COMBINE(current[0], current[1], current[2], current[3]);
 	HASH_FIND_INT(offsets, &currbytes, tuple);
 	if (tuple) for (uint8_t *pos = start + tuple->offset; pos < current; pos++) {
@@ -256,7 +256,6 @@ static void ref_search (const pack_context_t *this, backref_t *candidate, int fa
 	if (fast) return;
 	
 	// references to data where the bits are rotated
-	// see if this byte pair exists elsewhere, then start searching.
 	currbytes = COMBINE(rotate(current[0]), rotate(current[1]), rotate(current[2]), rotate(current[3]));
 	HASH_FIND_INT(offsets, &currbytes, tuple);
 	if (tuple) for (uint8_t *pos = start + tuple->offset; pos < current; pos++) {	
@@ -268,7 +267,6 @@ static void ref_search (const pack_context_t *this, backref_t *candidate, int fa
 	}
 	
 	// references to data which goes backwards
-	// see if this byte pair exists elsewhere, then start searching.
 	currbytes = COMBINE(current[3], current[2], current[1], current[0]);
 	HASH_FIND_INT(offsets, &currbytes, tuple);
 	// add 3 to offset since we're starting at the end of the 4 byte sequence here
@@ -301,6 +299,8 @@ static uint16_t write_raw (pack_context_t *this) {
 	int outsize;
 	
 	if (size >= RUN_SIZE) {
+		// write_check_size already accounts for size of raw data,
+		// but also check the size of the command/size byte(s)
 		outsize = 2;
 		if (!write_check_size(this, outsize)) return 0;
 		
@@ -308,8 +308,6 @@ static uint16_t write_raw (pack_context_t *this) {
 		out[this->outpos++] = 0xE0 + (size >> 8);
 		// write LSB of size
 		out[this->outpos++] = size & 0xFF;
-		
-		outsize = insize + 2;
 	}
 	// normal size run
 	else {
@@ -324,7 +322,7 @@ static uint16_t write_raw (pack_context_t *this) {
 	memcpy(&out[this->outpos], this->dontpack, insize);
 	this->outpos += insize;
 	this->dontpacksize = 0;
-	
+	// total size written is the command + size + all data
 	return outsize + insize;
 }
 

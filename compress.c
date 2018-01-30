@@ -301,6 +301,9 @@ static uint16_t write_raw (pack_context_t *this) {
 	int outsize;
 	
 	if (size >= RUN_SIZE) {
+		outsize = 2;
+		if (!write_check_size(this, outsize)) return 0;
+		
 		// write command byte + MSB of size
 		out[this->outpos++] = 0xE0 + (size >> 8);
 		// write LSB of size
@@ -310,10 +313,11 @@ static uint16_t write_raw (pack_context_t *this) {
 	}
 	// normal size run
 	else {
+		outsize = 1;
+		if (!write_check_size(this, outsize)) return 0;
+		
 		// write command byte / size
 		out[this->outpos++] = size;
-		
-		outsize = insize + 1;
 	}
 	
 	// write data
@@ -321,15 +325,13 @@ static uint16_t write_raw (pack_context_t *this) {
 	this->outpos += insize;
 	this->dontpacksize = 0;
 	
-	return outsize;
+	return outsize + insize;
 }
 
 // ------------------------------------------------------------------------------------------------
 // Writes a back reference to the compressed output stream.
 // Returns number of bytes written
 static uint16_t write_backref (pack_context_t *this, const backref_t *backref) {
-	if (!write_check_size(this, backref->size)) return 0;
-
 	uint16_t size = backref->size - 1;
 	uint8_t *out = this->packed;
 	int outsize;
@@ -342,18 +344,21 @@ static uint16_t write_backref (pack_context_t *this, const backref_t *backref) {
 	
 	// long run
 	if (size >= RUN_SIZE) {
+		outsize = 4;
+		if (!write_check_size(this, outsize)) return 0;
+		
 		// write command byte / MSB of size
 		out[this->outpos++] = (0xF0 + (backref->method << 2)) | (size >> 8);
 		// write LSB of size
 		out[this->outpos++] = size & 0xFF;
-		
-		outsize = 4;
 	} 
 	// normal size run
-	else {
+	else {		
+		outsize = 3;
+		if (!write_check_size(this, outsize)) return 0;
+		
 		// write command byte / size
 		out[this->outpos++] = (0x80 + (backref->method << 5)) | size;
-		outsize = 3;
 	}
 	
 	// write MSB of offset
@@ -369,16 +374,17 @@ static uint16_t write_backref (pack_context_t *this, const backref_t *backref) {
 // Writes RLE data to the compressed output stream.
 // Returns number of bytes written
 static uint16_t write_rle (pack_context_t *this, const rle_t *rle) {
-	if (!write_check_size(this, rle->size)) return 0;
-
 	uint16_t size;
 	uint8_t *out = this->packed;
 	int outsize;
 	
-	if (rle->method == rle_16)
+	if (rle->method == rle_16) {
+		outsize = 1; // account for extra byte of value
 		size = (rle->size / 2) - 1;
-	else
+	} else {
+		outsize = 0;
 		size = rle->size - 1;
+	}
 	
 	// flush the raw data buffer first
 	write_raw(this);
@@ -387,26 +393,27 @@ static uint16_t write_rle (pack_context_t *this, const rle_t *rle) {
 	
 	// long run
 	if (size >= RUN_SIZE) {
+		outsize += 3;
+		if (!write_check_size(this, outsize)) return 0;
+		
 		// write command byte / MSB of size
 		out[this->outpos++] = (0xE4 + (rle->method << 2)) | (size >> 8);
 		// write LSB of size
 		out[this->outpos++] = size & 0xFF;
-		
-		outsize = 3;
 	}
 	// normal size run
 	else {
+		outsize += 2;
+		if (!write_check_size(this, outsize)) return 0;
+		
 		// write command byte / size
 		out[this->outpos++] = (0x20 + (rle->method << 5)) | size;
-		
-		outsize = 2;
 	}
 	
 	out[this->outpos++] = rle->data;
 	// write upper byte of 16-bit RLE (and adjust written data size)
 	if (rle->method == rle_16) {
 		out[this->outpos++] = rle->data >> 8;
-		outsize++;
 	}
 	
 	this->inpos += rle->size;

@@ -272,7 +272,8 @@ static void ref_search (const pack_context_t *this, backref_t *candidate, int fa
 	// add 3 to offset since we're starting at the end of the 4 byte sequence here
 	if (tuple) for (uint8_t *pos = start + tuple->offset + 3; pos < current; pos++) {
 		// now repeat the check but go backwards
-		for (size = 0; size <= LONG_RUN_SIZE && current + size < start + insize; size++) {
+		for (size = 0; size <= LONG_RUN_SIZE && start + size <= pos
+		     && current + size < start + insize; size++) {
 			if (start[pos - start - size] != current[size]) break;
 		}
 		backref_candidate(candidate, pos - start, size, lz_rev);

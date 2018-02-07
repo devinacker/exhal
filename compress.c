@@ -275,6 +275,8 @@ static void ref_search (const pack_context_t *this, backref_t *candidate, int fa
 		for (size = 0; size <= LONG_RUN_SIZE && current + size < start + insize; size++) {
 			if (start[pos - start - size] != current[size]) break;
 		}
+        if(size > pos - start)
+            size -= size - (pos - start);
 		backref_candidate(candidate, pos - start, size, lz_rev);
 	}
 }

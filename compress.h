@@ -37,12 +37,20 @@ extern "C" {
 #define DATA_SIZE     65536
 
 typedef struct {
+	// Speed up compression somewhat by avoiding less common compression methods
+	int fast;
+	// Improve compression ratios by performing a shortest-path search
+	int optimal;
+} pack_options_t;
+
+typedef struct {
 	// Number of times each compression method occurred in the input
 	int methoduse[7];
 	// Size of compressed input
 	size_t inputsize;
 } unpack_stats_t;
 
+size_t exhal_pack2 (uint8_t *unpacked, size_t inputsize, uint8_t *packed, const pack_options_t *options);
 size_t exhal_pack  (uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast);
 size_t exhal_unpack(uint8_t *packed, uint8_t *unpacked, unpack_stats_t *stats);
 

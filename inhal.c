@@ -54,18 +54,22 @@ int main (int argc, char **argv) {
 	FILE   *infile, *outfile;
 	int    fileoffset;
 	int    newfile = 0;
-	int    fast    = 0;
+	pack_options_t options;
 	
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "-n"))
 			newfile = 1;
 		else if (!strcmp(argv[i], "-fast")) 
-			fast = 1;
+			options.fast = 1;
+		else if (!strcmp(argv[i], "-opt")) 
+			options.optimal = 1;
 	}
 	
-	if (fast)
+	if (options.fast)
 		printf("Fast compression enabled.\n");
-		
+	if (options.optimal)
+		printf("Optimal compression (shortest path) enabled.\n");	
+	
 	// check for -n switch
 	if (newfile) {
 		fileoffset = 0;
@@ -114,7 +118,7 @@ int main (int argc, char **argv) {
 	
 	// compress the file
 	clock_t time = clock();
-	outputsize = exhal_pack(unpacked, inputsize, packed, fast);
+	outputsize = exhal_pack2(unpacked, inputsize, packed, &options);
 	time = clock() - time;
 
 	if (outputsize) {

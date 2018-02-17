@@ -294,7 +294,8 @@ static uint16_t write_raw (pack_context_t *this) {
 
 	if (!insize) return 0;
 
-	debug("write_raw: writing %d bytes unpacked data\n", insize);
+	debug("%04x %04x write_raw: writing %d bytes unpacked data\n", 
+		this->inpos - insize, this->outpos, insize);
 
 	uint16_t size = insize - 1;
 	int outsize;
@@ -328,24 +329,28 @@ static uint16_t write_raw (pack_context_t *this) {
 }
 
 // ------------------------------------------------------------------------------------------------
+static inline uint16_t backref_outsize(const backref_t *backref) {
+	return (backref->size - 1 >= RUN_SIZE) ? 4 : 3;
+}
+
+// ------------------------------------------------------------------------------------------------
 // Writes a back reference to the compressed output stream.
 // Returns number of bytes written
 static uint16_t write_backref (pack_context_t *this, const backref_t *backref) {
 	uint16_t size = backref->size - 1;
 	uint8_t *out = this->packed;
-	int outsize;
+	
+	uint16_t outsize = backref_outsize(backref);
+	if (!write_check_size(this, outsize)) return 0;
 	
 	// flush the raw data buffer first
 	write_raw(this);
 	
-	debug("write_backref: writing backref to %4x, size %d (method %d)\n", 
-		backref->offset, backref->size, backref->method);
+	debug("%04x %04x write_backref: writing backref to %4x, size %d (method %d)\n", 
+		this->inpos, this->outpos, backref->offset, backref->size, backref->method);
 	
 	// long run
 	if (size >= RUN_SIZE) {
-		outsize = 4;
-		if (!write_check_size(this, outsize)) return 0;
-		
 		// write command byte / MSB of size
 		out[this->outpos++] = (0xF0 + (backref->method << 2)) | (size >> 8);
 		// write LSB of size
@@ -353,9 +358,6 @@ static uint16_t write_backref (pack_context_t *this, const backref_t *backref) {
 	} 
 	// normal size run
 	else {		
-		outsize = 3;
-		if (!write_check_size(this, outsize)) return 0;
-		
 		// write command byte / size
 		out[this->outpos++] = (0x80 + (backref->method << 5)) | size;
 	}
@@ -370,31 +372,36 @@ static uint16_t write_backref (pack_context_t *this, const backref_t *backref) {
 }
 
 // ------------------------------------------------------------------------------------------------
+static inline uint16_t rle_outsize(const rle_t *rle) {
+	uint16_t size = (rle->size - 1 >= RUN_SIZE) ? 3 : 2;
+	if (rle->method == rle_16) size++; // account for extra byte of value
+	return size;
+}
+
+// ------------------------------------------------------------------------------------------------
 // Writes RLE data to the compressed output stream.
 // Returns number of bytes written
 static uint16_t write_rle (pack_context_t *this, const rle_t *rle) {
 	uint16_t size;
 	uint8_t *out = this->packed;
-	int outsize;
+	
+	uint16_t outsize = rle_outsize(rle);
+	if (!write_check_size(this, outsize)) return 0;
 	
 	if (rle->method == rle_16) {
-		outsize = 1; // account for extra byte of value
 		size = (rle->size / 2) - 1;
 	} else {
-		outsize = 0;
 		size = rle->size - 1;
 	}
 	
 	// flush the raw data buffer first
 	write_raw(this);
 	
-	debug("write_rle: writing %d bytes of data 0x%02x (method %d)\n", rle->size, rle->data, rle->method);
+	debug("%04x %04x write_rle: writing %d bytes of data 0x%02x (method %d)\n", 
+		this->inpos, this->outpos, rle->size, rle->data, rle->method);
 	
 	// long run
 	if (size >= RUN_SIZE) {
-		outsize += 3;
-		if (!write_check_size(this, outsize)) return 0;
-		
 		// write command byte / MSB of size
 		out[this->outpos++] = (0xE4 + (rle->method << 2)) | (size >> 8);
 		// write LSB of size
@@ -402,9 +409,6 @@ static uint16_t write_rle (pack_context_t *this, const rle_t *rle) {
 	}
 	// normal size run
 	else {
-		outsize += 2;
-		if (!write_check_size(this, outsize)) return 0;
-		
 		// write command byte / size
 		out[this->outpos++] = (0x20 + (rle->method << 5)) | size;
 	}
@@ -450,54 +454,185 @@ static uint16_t write_trailer(pack_context_t *this) {
 }
 
 // ------------------------------------------------------------------------------------------------
-// Compresses a file of up to 64 kb.
-// unpacked/packed are 65536 byte buffers to read/from write to, 
-// inputsize is the length of the uncompressed data.
-// Returns the size of the compressed data in bytes, or 0 if compression failed.
-size_t exhal_pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
+static void pack_normal(pack_context_t *this, int fast) {
+	size_t inputsize = this->inputsize;
 	// backref and RLE compression candidates
 	backref_t backref = {0};
 	rle_t     rle = {0};
 	
+	while (inputsize > 0) {
+		// check for a potential RLE
+		rle_check(this, &rle, fast);
+		// check for a potential back reference
+		if (rle.size < LONG_RUN_SIZE && inputsize >= 4)
+			ref_search(this, &backref, fast);
+		else backref.size = 0;
+		
+		// if the backref is a better candidate, use it
+		if (backref.size > rle.size) {
+			if (!write_backref(this, &backref)) break;
+		}
+		// or if the RLE is a better candidate, use it instead
+		else if (rle.size >= 2) {
+			if (!write_rle(this, &rle)) break;
+		}
+		// otherwise, write this byte uncompressed
+		else {
+			if (!write_next_byte(this)) break;
+		}
+		
+		inputsize = input_bytes_left(this);
+	}
+}
+
+// ------------------------------------------------------------------------------------------------
+static void pack_optimal(pack_context_t *this, int fast) {
+	size_t inputsize = this->inputsize;
+	// backref and RLE compression candidates
+	backref_t backref = {0};
+	rle_t     rle = {0};
+	
+	// test - just go through entire input and score each byte
+	typedef struct node_s {
+		// previous and next nodes in directed graph
+		// (populated when doing shortest-path search)
+		struct node_s *next, *prev;
+		// distance to second neighboring node (first is n+1)
+		size_t neighbor;
+		// graph edge length between this and neighbor (i.e. size of compressed data)
+		size_t length;
+		// distance to start of data
+		size_t distance;
+		// backref used for compression (else RLE if neighbor > 0)
+		int backref;
+		// RLE data or backref offset
+		uint16_t data;
+		// RLE/backref method used
+		method_e method;
+	} node_t;
+	node_t *nodes = calloc(inputsize+1, sizeof(node_t));
+	
+	for (this->inpos = 0; this->inpos < inputsize; this->inpos++) {
+		node_t *node = nodes+this->inpos;
+		node->distance = 1<<16;
+		node->next = node->prev = 0;
+
+		// check for a potential RLE
+		rle_check(this, &rle, fast);
+		// check for a potential back reference
+		if (rle.size < LONG_RUN_SIZE && inputsize >= 4)
+			ref_search(this, &backref, fast);
+		else backref.size = 0;
+		
+		// if the backref is a better candidate, use it
+		if (backref.size > rle.size) {
+			node->neighbor = backref.size;
+			node->length   = backref_outsize(&backref);
+			node->method   = backref.method;
+			node->data     = backref.offset;
+			node->backref  = 1;
+		}
+		// or if the RLE is a better candidate, use it instead
+		else if (rle.size >= 2) {
+			node->neighbor = rle.size;
+			node->length   = rle_outsize(&rle);
+			node->method   = rle.method;
+			node->data     = rle.data;
+		}
+	}
+	
+	// find shortest path through input
+	nodes[0].distance = 0;
+	nodes[inputsize].distance = 1<<16;
+	
+	node_t *node, *other;
+	
+	for (size_t i = 0; i < inputsize; i++) {
+		node = nodes+i;
+		size_t newdist;
+		
+		// check first neighbor (next byte)
+		other = node+1;
+		newdist = node->distance + 2; // at least 1 literal byte + 1 control byte
+		if (newdist < other->distance) {
+			other->distance = newdist;
+			other->prev = node;
+		}
+		
+		// check second neighbor (next byte after compression, if possible)
+		if (!node->neighbor) continue;
+		
+		other = node+node->neighbor;
+		newdist = node->distance + node->length;
+		if (newdist < other->distance) {
+			other->distance = newdist;
+			other->prev = node;
+		}
+	}
+	debug("final distance = %u prev = %04x\n", nodes[inputsize].distance, nodes[inputsize].prev);
+	// create path back from end to start of data
+	for (node = nodes+inputsize; node->prev; node = node->prev) {
+		debug("node = %u prev = %u\n", node-nodes, node->prev-nodes);
+		node->prev->next = node;
+	}
+	
+	// compress data based on shortest path
+	this->inpos = 0;
+	for (node = nodes; node->next; node = node->next) {
+		debug("node = %u next = %u\n", node-nodes, node->next-nodes);
+		if (node->next == node+1) {
+			if (!write_next_byte(this)) break;
+		} else if (node->backref) {
+			backref.size   = node->neighbor;
+			backref.method = node->method;
+			backref.offset = node->data;
+			if (!write_backref(this, &backref)) break;
+		} else {
+			rle.size   = node->neighbor;
+			rle.method = node->method;
+			rle.data   = node->data;
+			if (!write_rle(this, &rle)) break;
+		}
+	}
+	
+	free(nodes);
+}
+
+// ------------------------------------------------------------------------------------------------
+// Compresses a file of up to 64 kb.
+// unpacked/packed are 65536 byte buffers to read/from write to, 
+// inputsize is the length of the uncompressed data.
+// Returns the size of the compressed data in bytes, or 0 if compression failed.
+size_t exhal_pack2(uint8_t *unpacked, size_t inputsize, uint8_t *packed, const pack_options_t *options) {
 	size_t outpos = 0;
 	
 	debug("inputsize = %d\n", inputsize);
 	
 	pack_context_t *ctx = pack_context_alloc(unpacked, inputsize, packed);
 	if (!ctx) return 0;
-	
-	while (inputsize > 0) {
-		// check for a potential RLE
-		rle_check(ctx, &rle, fast);
-		// check for a potential back reference
-		if (rle.size < LONG_RUN_SIZE && inputsize >= 4)
-			ref_search(ctx, &backref, fast);
-		else backref.size = 0;
-		
-		// if the backref is a better candidate, use it
-		if (backref.size > rle.size) {
-			if (!write_backref(ctx, &backref)) goto end;
-		}
-		// or if the RLE is a better candidate, use it instead
-		else if (rle.size >= 2) {
-			if (!write_rle(ctx, &rle)) goto end;
-		}
-		// otherwise, write this byte uncompressed
-		else {
-			if (!write_next_byte(ctx)) goto end;
-		}
-		
-		inputsize = input_bytes_left(ctx);
+
+	if (inputsize > 0) {
+		if (options && options->optimal)
+			pack_optimal(ctx, options ? options->fast : 0);
+		else
+			pack_normal(ctx, options ? options->fast : 0);
 	}
-	
+		
 	if (write_trailer(ctx)) {
 		// compressed data was written successfully
 		outpos = (size_t)ctx->outpos;
 	}
 
-end:
 	pack_context_free(ctx);
 	return outpos;
+}
+
+// ------------------------------------------------------------------------------------------------
+size_t exhal_pack(uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast) {
+	pack_options_t options = {
+		.fast = fast,
+	};
+	return exhal_pack2(unpacked, inputsize, packed, &options);
 }
 
 // ------------------------------------------------------------------------------------------------

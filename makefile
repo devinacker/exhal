@@ -2,7 +2,7 @@
 # copyright 2013 Devin Acker (Revenant)
 # See copying.txt for legal information.
 
-CFLAGS  += -std=c99 -Os -Wall -s
+CFLAGS  += -std=c99 -O3 -Wall -s
 
 # Add extension when compiling for Windows
 ifeq ($(OS), Windows_NT)
@@ -15,19 +15,18 @@ DEFINES += -DEXTRA_OUT
 # Uncomment this line to enable debug output
 #DEFINES += -DDEBUG_OUT
 
+CFLAGS += $(DEFINES)
+
 all: inhal$(EXT) exhal$(EXT) sniff$(EXT)
 
 clean:
-	$(RM) inhal$(EXT) exhal$(EXT) sniff$(EXT) compress.o
+	$(RM) inhal$(EXT) exhal$(EXT) sniff$(EXT) *.o
 
-sniff$(EXT): sniff.c compress.o
-	$(CC) $(DEFINES) $(CFLAGS) -o sniff$(EXT) sniff.c compress.o
+sniff$(EXT): sniff.o compress.o memmem.o
+	$(CC) $(CFLAGS) -o $@ $^
 	
-inhal$(EXT): inhal.c compress.o
-	$(CC) $(DEFINES) $(CFLAGS) -o inhal$(EXT) inhal.c compress.o
+inhal$(EXT): inhal.o compress.o memmem.o
+	$(CC) $(CFLAGS) -o $@ $^
 	
-exhal$(EXT): exhal.c compress.o
-	$(CC) $(DEFINES) $(CFLAGS) -o exhal$(EXT) exhal.c compress.o
-	
-compress.o: compress.c
-	$(CC) $(DEFINES) $(CFLAGS) -c compress.c
+exhal$(EXT): exhal.o compress.o memmem.o
+	$(CC) $(CFLAGS) -o $@ $^

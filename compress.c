@@ -31,6 +31,9 @@
 #include "compress.h"
 #include "uthash.h"
 
+// memmem.c
+void *memmem(const void *h0, size_t k, const void *n0, size_t l);
+
 #ifdef DEBUG_OUT
 #define debug(...) printf(__VA_ARGS__)
 #else
@@ -242,14 +245,17 @@ static void ref_search (const pack_context_t *this, backref_t *candidate, int fa
 	// references to previous data which goes in the same direction
 	// see if this byte sequence exists elsewhere, then start searching.
 	currbytes = COMBINE(current[0], current[1], current[2], current[3]);
+	size = 4;
 	HASH_FIND_INT(offsets, &currbytes, tuple);
-	if (tuple) for (uint8_t *pos = start + tuple->offset; pos < current; pos++) {
+	if (tuple) for (uint8_t *pos = start + tuple->offset; pos && pos < current;) {
 		// see how many bytes in a row are the same between the current uncompressed data
 		// and the data at the position being searched
-		for (size = 0; size <= LONG_RUN_SIZE && current + size < start + insize; size++) {
+		for (; size <= LONG_RUN_SIZE && current + size < start + insize; size++) {
 			if (pos[size] != current[size]) break;
 		}
 		backref_candidate(candidate, pos - start, size, lz_norm);
+		// find another instance of the current data to see if it can be a better candidate
+		pos = memmem(pos + 1, insize - (pos - start) - 1, pos, size);
 	}
 	
 	// fast mode: forward references only
@@ -257,21 +263,27 @@ static void ref_search (const pack_context_t *this, backref_t *candidate, int fa
 	
 	// references to data where the bits are rotated
 	currbytes = COMBINE(rotate(current[0]), rotate(current[1]), rotate(current[2]), rotate(current[3]));
+	size = 4;
 	HASH_FIND_INT(offsets, &currbytes, tuple);
-	if (tuple) for (uint8_t *pos = start + tuple->offset; pos < current; pos++) {	
+	if (tuple) for (uint8_t *pos = start + tuple->offset; pos && pos < current;) {
 		// now repeat the check with the bit rotation method
-		for (size = 0; size <= LONG_RUN_SIZE && current + size < start + insize; size++) {
+		for (; size <= LONG_RUN_SIZE && current + size < start + insize; size++) {
 			if (pos[size] != rotate(current[size])) break;
 		}
 		backref_candidate(candidate, pos - start, size, lz_rot);
+		// find another instance of the current data to see if it can be a better candidate
+		pos = memmem(pos + 1, insize - (pos - start) - 1, pos, size);
 	}
 	
 	// references to data which goes backwards
 	currbytes = COMBINE(current[3], current[2], current[1], current[0]);
+	size = 4;
 	HASH_FIND_INT(offsets, &currbytes, tuple);
-	// add 3 to offset since we're starting at the end of the 4 byte sequence here
-	if (tuple) for (uint8_t *pos = start + tuple->offset + 3; pos < current; pos++) {
+	if (tuple) for (uint8_t *pos = start + tuple->offset + 3; pos && pos < current; pos++) {
 		// now repeat the check but go backwards
+		// TODO: possibly use memmem to speed up this one a bit also,
+		// though we'd then basically be searching both backwards and forwards,
+		// which would be a bit weird to manage correctly...
 		for (size = 0; size <= LONG_RUN_SIZE && start + size <= pos
 		     && current + size < start + insize; size++) {
 			if (start[pos - start - size] != current[size]) break;
@@ -511,11 +523,11 @@ static void pack_optimal(pack_context_t *this, int fast) {
 		method_e method;
 	} node_t;
 	node_t *nodes = calloc(inputsize+1, sizeof(node_t));
+	node_t *node, *other;
 	
 	for (this->inpos = 0; this->inpos < inputsize; this->inpos++) {
-		node_t *node = nodes+this->inpos;
+		node = nodes+this->inpos;
 		node->distance = 1<<16;
-		node->next = node->prev = 0;
 
 		// check for a potential RLE
 		rle_check(this, &rle, fast);
@@ -544,8 +556,6 @@ static void pack_optimal(pack_context_t *this, int fast) {
 	// find shortest path through input
 	nodes[0].distance = 0;
 	nodes[inputsize].distance = 1<<16;
-	
-	node_t *node, *other;
 	
 	for (size_t i = 0; i < inputsize; i++) {
 		node = nodes+i;

@@ -1,7 +1,7 @@
 /*-
  * SPDX-License-Identifier: MIT
  *
- * Copyright (c) 2005-2014 Rich Felker, et al.
+ * Copyright © 2005-2020 Rich Felker, et al.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -29,27 +29,27 @@
 static char *twobyte_memmem(const unsigned char *h, size_t k, const unsigned char *n)
 {
 	uint16_t nw = n[0]<<8 | n[1], hw = h[0]<<8 | h[1];
-	for (h++, k--; k; k--, hw = hw<<8 | *++h)
-		if (hw == nw) return (char *)h-1;
-	return 0;
+	for (h+=2, k-=2; k; k--, hw = hw<<8 | *h++)
+		if (hw == nw) return (char *)h-2;
+	return hw == nw ? (char *)h-2 : 0;
 }
 
 static char *threebyte_memmem(const unsigned char *h, size_t k, const unsigned char *n)
 {
-	uint32_t nw = n[0]<<24 | n[1]<<16 | n[2]<<8;
-	uint32_t hw = h[0]<<24 | h[1]<<16 | h[2]<<8;
-	for (h+=2, k-=2; k; k--, hw = (hw|*++h)<<8)
-		if (hw == nw) return (char *)h-2;
-	return 0;
+	uint32_t nw = (uint32_t)n[0]<<24 | n[1]<<16 | n[2]<<8;
+	uint32_t hw = (uint32_t)h[0]<<24 | h[1]<<16 | h[2]<<8;
+	for (h+=3, k-=3; k; k--, hw = (hw|*h++)<<8)
+		if (hw == nw) return (char *)h-3;
+	return hw == nw ? (char *)h-3 : 0;
 }
 
 static char *fourbyte_memmem(const unsigned char *h, size_t k, const unsigned char *n)
 {
-	uint32_t nw = n[0]<<24 | n[1]<<16 | n[2]<<8 | n[3];
-	uint32_t hw = h[0]<<24 | h[1]<<16 | h[2]<<8 | h[3];
-	for (h+=3, k-=3; k; k--, hw = hw<<8 | *++h)
-		if (hw == nw) return (char *)h-3;
-	return 0;
+	uint32_t nw = (uint32_t)n[0]<<24 | n[1]<<16 | n[2]<<8 | n[3];
+	uint32_t hw = (uint32_t)h[0]<<24 | h[1]<<16 | h[2]<<8 | h[3];
+	for (h+=4, k-=4; k; k--, hw = hw<<8 | *h++)
+		if (hw == nw) return (char *)h-4;
+	return hw == nw ? (char *)h-4 : 0;
 }
 
 #define MAX(a,b) ((a)>(b)?(a):(b))
@@ -58,14 +58,6 @@ static char *fourbyte_memmem(const unsigned char *h, size_t k, const unsigned ch
 #define BITOP(a,b,op) \
  ((a)[(size_t)(b)/(8*sizeof *(a))] op (size_t)1<<((size_t)(b)%(8*sizeof *(a))))
 
-/*
- * Two Way string search algorithm, with a bad shift table applied to the last
- * byte of the window. A bit array marks which entries in the shift table are
- * initialized to avoid fully initializing a 1kb/2kb table.
- *
- * Reference: CROCHEMORE M., PERRIN D., 1991, Two-way string-matching,
- * Journal of the ACM 38(3):651-675
- */
 static char *twoway_memmem(const unsigned char *h, const unsigned char *z, const unsigned char *n, size_t l)
 {
 	size_t i, ip, jp, k, p, ms, p0, mem, mem0;
@@ -132,7 +124,7 @@ static char *twoway_memmem(const unsigned char *h, const unsigned char *z, const
 		if (BITOP(byteset, h[l-1], &)) {
 			k = l-shift[h[l-1]];
 			if (k) {
-				if (mem0 && mem && k < p) k = l-p;
+				if (k < mem) k = mem;
 				h += k;
 				mem = 0;
 				continue;

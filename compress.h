@@ -50,9 +50,9 @@ typedef struct {
 	size_t inputsize;
 } unpack_stats_t;
 
-size_t exhal_pack2 (uint8_t *unpacked, size_t inputsize, uint8_t *packed, const pack_options_t *options);
-size_t exhal_pack  (uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast);
-size_t exhal_unpack(uint8_t *packed, uint8_t *unpacked, unpack_stats_t *stats);
+size_t exhal_pack2 (const uint8_t *unpacked, size_t inputsize, uint8_t *packed, const pack_options_t *options);
+size_t exhal_pack  (const uint8_t *unpacked, size_t inputsize, uint8_t *packed, int fast);
+size_t exhal_unpack(const uint8_t *packed, uint8_t *unpacked, unpack_stats_t *stats);
 
 size_t exhal_unpack_from_file(FILE *file, size_t offset, uint8_t *unpacked, unpack_stats_t *stats);
 
